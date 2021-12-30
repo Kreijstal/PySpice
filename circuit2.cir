@@ -1,0 +1,17 @@
+.title Lolcatz
+
+V1 1 0 1
+R1 1 2 1
+R2 2 3 1
+V2 3 4 1
+R3 4 0 1
+R4 2 5 1
+I1 0 5 1
+R5 2 0 1
+
+.control
+    op
+    mdump
+.endc
+
+.end
