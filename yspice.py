@@ -17,7 +17,7 @@ def element():
     return el, node, node, val, RegExMatch(r';')
 
 def el():
-    return RegExMatch(r'(R\d+)|(V\d+)')
+    return RegExMatch(r'(R\d+)|(V\d+)|(L\d+)|(C\d+)')
 
 # Only # names
 def node():
@@ -46,27 +46,50 @@ def get_nodes(ptree):
     assert nodes[0] == 1
     return nodes
 
-def get_ind_v_srcs(ptree):
-    ind_v_srcs = []
+def get_ind_srcs(ptree, voltage = True):
+    ind_srcs = []
     for l in ptree:
         if str(l) != "":
             l = str(l).replace("|", "").split()
-            if l[0][0] == "V":
-                ind_v_srcs.append(int(l[0][1:]))
-    ind_v_srcs.sort()
-    for i in range(len(ind_v_srcs)-1):
-        assert ind_v_srcs[i+1] - ind_v_srcs[i] == 1
-    assert ind_v_srcs[0] == 1
-    return ind_v_srcs
+            if (l[0][0] == "V" and voltage) or (l[0][0] == "I" and not voltage):
+                ind_srcs.append(int(l[0][1:]))
+    ind_srcs.sort()
+    for i in range(len(ind_srcs)-1):
+        assert ind_srcs[i+1] - ind_srcs[i] == 1
+    print("ind_srcs = {}, len(ind_srcs) = {}".format(ind_srcs, len(ind_srcs)))
+    if len(ind_srcs) != 0:
+        assert ind_srcs[0] == 1
+    return ind_srcs
+
+def lc_filter(ptree):
+    # Inductors are considered independent sources of voltage 0
+    # Capacitors are considered independent sources of current 0
+    for l in ptree:
+        if str(l) != "":
+            if str(l).replace("|", "").split()[0][0] == "L":
+                global num_vsrcs
+                num_vsrcs += 1
+                l[0] = "V{}".format(num_vsrcs)
+                l[3] = "0"
+            elif str(l).replace("|", "").split()[0][0] == "C":
+                global num_isrcs
+                num_isrcs += 1
+                l[0] = "I{}".format(num_isrcs)
+                l[3] = "0"
 
 if __name__ == "__main__":
     parser = ParserPython(root)
     with open(sys.argv[1], "r") as f:
         parse_tree = parser.parse(f.read())
         nodes = get_nodes(parse_tree)
-        ind_v_srcs = get_ind_v_srcs(parse_tree)
-        A_matrix = numpy.zeros([len(nodes) + len(ind_v_srcs), len(nodes) + len(ind_v_srcs)])
-        z_vector = numpy.zeros([len(nodes) + len(ind_v_srcs), 1])
+        ind_v_srcs = get_ind_srcs(parse_tree)
+        ind_i_srcs = get_ind_srcs(parse_tree, voltage = False)
+        global num_vsrcs, num_isrcs
+        num_vsrcs = len(ind_v_srcs)
+        num_isrcs = len(ind_i_srcs)
+        lc_filter(parse_tree)
+        A_matrix = numpy.zeros([len(nodes) + num_vsrcs, len(nodes) + num_vsrcs])
+        z_vector = numpy.zeros([len(nodes) + num_vsrcs, 1])
         for r in parse_tree:
             _r = str(r).replace("|", "").split()
             if _r != [] and _r[0][0] == "R":
@@ -85,6 +108,9 @@ if __name__ == "__main__":
                     A_matrix[len(nodes) + int(_r[0][1:]) - 1][int(_r[2]) - 1] = -1.00
                     A_matrix[int(_r[2]) - 1][len(nodes) + int(_r[0][1:]) - 1] = -1.00
                 z_vector[len(nodes) + int(_r[0][1:]) - 1][0] = float(_r[3])
+            elif _r != [] and _r[0][0] == "I":
+                z_vector[int(_r[1])][0] -= float(_r[3])
+                z_vector[int(_r[2])][0] += float(_r[3])
         soln = numpy.dot(numpy.linalg.inv(A_matrix), z_vector)
         for i in range(len(nodes)):
             print("Node {}: {} [V]".format(i, soln[i][0]))
