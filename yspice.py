@@ -111,6 +111,6 @@ if __name__ == "__main__":
             elif _r != [] and _r[0][0] == "I":
                 z_vector[int(_r[1])][0] -= float(_r[3])
                 z_vector[int(_r[2])][0] += float(_r[3])
-        soln = numpy.dot(numpy.linalg.inv(A_matrix), z_vector)
+        soln = numpy.linalg.solve(A_matrix, z_vector)
         for i in range(len(nodes)):
             print("Node {}: {} [V]".format(i, soln[i][0]))
