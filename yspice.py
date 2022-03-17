@@ -56,7 +56,6 @@ def get_ind_srcs(ptree, voltage = True):
     ind_srcs.sort()
     for i in range(len(ind_srcs)-1):
         assert ind_srcs[i+1] - ind_srcs[i] == 1
-    print("ind_srcs = {}, len(ind_srcs) = {}".format(ind_srcs, len(ind_srcs)))
     if len(ind_srcs) != 0:
         assert ind_srcs[0] == 1
     return ind_srcs
@@ -113,4 +112,4 @@ if __name__ == "__main__":
                 z_vector[int(_r[2])][0] += float(_r[3])
         soln = numpy.linalg.solve(A_matrix, z_vector)
         for i in range(len(nodes)):
-            print("Node {}: {} [V]".format(i, soln[i][0]))
+            print("Node {}: {} [V]".format(i + 1, soln[i][0]))
