@@ -32,6 +32,7 @@ def val():
 
 def get_nodes(ptree):
     nodes = []
+    num_lines = 0
     for l in ptree:
         if str(l) != "":
             l = str(l).replace("|", "").split()
@@ -39,13 +40,14 @@ def get_nodes(ptree):
                 nodes.append(int(l[1]))
             if int(l[2]) not in nodes:
                 nodes.append(int(l[2]))
+            num_lines += 1
     nodes.sort()
     # Don't allow user to skip node numbers
     for i in range(len(nodes)-1):
         assert nodes[i+1] - nodes[i] == 1
     # Don't allow user to start past node 1
     assert nodes[0] == 0
-    return nodes
+    return nodes,num_lines
 
 def get_ind_srcs(ptree, voltage = True):
     ind_srcs = []
@@ -99,13 +101,18 @@ def top_lambda(x):
     global num_nodes, line_idx, lambda_array
     for _l in lambda_array:
         y_array.append(_l(x))
+    assert len(y_array) <= num_nodes + line_idx
     if len(y_array) < num_nodes + line_idx:
         y_array += [0.0] * (num_nodes + line_idx - len(y_array))
     return y_array
 
+def kcl_prepend(s, branch_idx, plus):
+    global num_nodes
+    return "{}x[{}]".format("+" if plus else "-", num_nodes + branch_idx) + s
+
 def solve(top_lambda):
     global num_nodes, line_idx
-    x = scipy.optimize.root(top_lambda, numpy.ones(num_nodes + line_idx)).x
+    x = scipy.optimize.root(top_lambda, numpy.random.rand(num_nodes + line_idx), method='lm', options = {'xtol' : 1e-9, 'maxiter' : int(1e7)}).x
     for i in range(1, num_nodes):
         x[i] -= x[0]
     x[0] = 0.0
@@ -113,8 +120,11 @@ def solve(top_lambda):
 
 def fmt_soln(x):
     global num_nodes, line_idx
+    # Ignore ground
+    # for n in range(1, num_nodes):
     for n in range(num_nodes):
         print("V{} = {} [V]".format(n, x[n]))
+    # TODO: Current correctness is not guaranteed
     for l in range(line_idx):
         print("I{} = {} [A]".format(l, x[num_nodes + l]))
 
@@ -122,7 +132,7 @@ if __name__ == "__main__":
     parser = ParserPython(root)
     with open(sys.argv[1], "r") as f:
         parse_tree = parser.parse(f.read())
-        nodes = get_nodes(parse_tree)
+        nodes, num_lines = get_nodes(parse_tree)
         ind_v_srcs = get_ind_srcs(parse_tree)
         ind_i_srcs = get_ind_srcs(parse_tree, voltage = False)
         global num_vsrcs, num_isrcs, num_nodes, line_idx
@@ -133,6 +143,8 @@ if __name__ == "__main__":
         line_idx = 0
         global lambda_array
         lambda_array = []
+        kcl = [""] * (num_nodes - 1)
+        pwr_cons = ""
         for r in parse_tree:
             _r = str(r).replace("|", "").split()
             if _r != [] and _r[0][0] == "R":
@@ -141,6 +153,16 @@ if __name__ == "__main__":
                 lambda_array.append(gen_vsrc_eqn(_r, line_idx))
             elif _r != [] and _r[0][0] == "I":
                 lambda_array.append(gen_isrc_eqn(_r, line_idx))
+            # Must follow this current direction convention. Otherwise, current sources
+            # break.
             if _r != []:
+                pwr_cons += "+((x[{}])*(x[{}] - x[{}]))".format(num_nodes + line_idx, _r[1], _r[2])
+                if int(_r[1]) != 0:
+                    kcl[int(_r[1]) - 1] = kcl_prepend(kcl[int(_r[1]) - 1], line_idx, False)
+                if int(_r[2]) != 0:
+                    kcl[int(_r[2]) - 1] = kcl_prepend(kcl[int(_r[2]) - 1], line_idx, True)
                 line_idx += 1
+        lambda_array += [lambda x : eval(eqn) for eqn in kcl]
+        lambda_array.append(lambda x : eval(pwr_cons))
+        assert num_lines == line_idx
         fmt_soln(solve(top_lambda))
