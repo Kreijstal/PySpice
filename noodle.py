@@ -81,52 +81,56 @@ def lc_filter(ptree):
 
 # Calculating functions
 
-def resistance(vnode_A, vnode_B, ibranch):
-    return (vnode_A - vnode_B) / ibranch
-
 def gen_passive_eqn(ptree_node, line_idx):
-    fn_str = "({}) - resistance(x[{}], x[{}], x[{}])".format(ptree_node[3], ptree_node[1], ptree_node[2], num_nodes + line_idx)
-    return lambda x : (eval(ptree_node[3])) - resistance(x[int(ptree_node[1])], x[int(ptree_node[2])], x[num_nodes + line_idx])
+    # f = lambda x : (x[num_nodes + line_idx - 1] * (eval(ptree_node[3]))) - ((x[int(ptree_node[1])-1] if int(ptree_node[1]) != 0 else 0.0) - \
+    #                                                                            (x[int(ptree_node[2])-1] if int(ptree_node[2]) != 0 else 0.0))
+    s = "(x[{}] * ({})) - (({}) - ({}))".format(num_nodes + line_idx - 1, ptree_node[3],
+                                                "x[" + str(int(ptree_node[1])-1) + "]" if int(ptree_node[1]) != 0 else 0.0,
+                                                "x[" + str(int(ptree_node[2])-1) + "]" if int(ptree_node[2]) != 0 else 0.0)
+    return s
 
 def gen_vsrc_eqn(ptree_node, line_idx):
-    fn_str = "({}) - (x[{}] - x[{}])".format(ptree_node[3], ptree_node[1], ptree_node[2])
-    return lambda x : (eval(ptree_node[3])) - (x[int(ptree_node[1])] - x[int(ptree_node[2])])
+    # f = lambda x : (eval(ptree_node[3])) - ((x[int(ptree_node[1])-1] if int(ptree_node[1]) != 0 else 0.0) - \
+    #                                            (x[int(ptree_node[2])-1] if int(ptree_node[2]) != 0 else 0.0))
+    s = "({}) - (({}) - ({}))".format(ptree_node[3],
+                                      "x[" + str(int(ptree_node[1])-1) + "]" if int(ptree_node[1]) != 0 else 0.0,
+                                      "x[" + str(int(ptree_node[2])-1) + "]" if int(ptree_node[2]) != 0 else 0.0)
+    return s
 
 def gen_isrc_eqn(ptree_node, line_idx):
-    fn_str = "({}) - x[{}]".format(ptree_node[3], num_nodes + line_idx)
-    return lambda x : (eval(ptree_node[3])) - x[num_nodes + line_idx]
+    # f = lambda x : (eval(ptree_node[3])) - x[num_nodes + line_idx - 1]
+    s = "({}) - x[{}]".format(ptree_node[3], num_nodes + line_idx - 1)
+    return s
 
+global iteration
+iteration = 0
 def top_lambda(x):
     y_array = []
     global num_nodes, line_idx, lambda_array
     for _l in lambda_array:
         y_array.append(_l(x))
-    assert len(y_array) <= num_nodes + line_idx
-    if len(y_array) < num_nodes + line_idx:
-        y_array += [0.0] * (num_nodes + line_idx - len(y_array))
+    assert len(y_array) == num_nodes + line_idx - 1
+    # global iteration
+    # print("iter {} = {}".format(iteration, y_array))
+    # iteration += 1
     return y_array
 
 def kcl_prepend(s, branch_idx, plus):
     global num_nodes
-    return "{}x[{}]".format("+" if plus else "-", num_nodes + branch_idx) + s
+    return "{}x[{}]".format("+" if plus else "-", num_nodes + branch_idx - 1) + s
 
 def solve(top_lambda):
     global num_nodes, line_idx
-    x = scipy.optimize.root(top_lambda, numpy.random.rand(num_nodes + line_idx), method='lm', options = {'xtol' : 1e-9, 'maxiter' : int(1e7)}).x
-    for i in range(1, num_nodes):
-        x[i] -= x[0]
-    x[0] = 0.0
+    x = scipy.optimize.root(top_lambda, numpy.ones(num_nodes + line_idx - 1), method='broyden1').x
     return x
 
 def fmt_soln(x):
     global num_nodes, line_idx
-    # Ignore ground
-    # for n in range(1, num_nodes):
-    for n in range(num_nodes):
-        print("V{} = {} [V]".format(n, x[n]))
+    for n in range(num_nodes - 1):
+        print("V{} = {} [V]".format(n + 1, x[n]))
     # TODO: Current correctness is not guaranteed
     for l in range(line_idx):
-        print("I{} = {} [A]".format(l, x[num_nodes + l]))
+        print("I{} = {} [A]".format(l, x[num_nodes + l - 1]))
 
 if __name__ == "__main__":
     parser = ParserPython(root)
@@ -144,7 +148,6 @@ if __name__ == "__main__":
         global lambda_array
         lambda_array = []
         kcl = [""] * (num_nodes - 1)
-        pwr_cons = ""
         for r in parse_tree:
             _r = str(r).replace("|", "").split()
             if _r != [] and _r[0][0] == "R":
@@ -156,13 +159,22 @@ if __name__ == "__main__":
             # Must follow this current direction convention. Otherwise, current sources
             # break.
             if _r != []:
-                pwr_cons += "+((x[{}])*(x[{}] - x[{}]))".format(num_nodes + line_idx, _r[1], _r[2])
                 if int(_r[1]) != 0:
                     kcl[int(_r[1]) - 1] = kcl_prepend(kcl[int(_r[1]) - 1], line_idx, False)
                 if int(_r[2]) != 0:
                     kcl[int(_r[2]) - 1] = kcl_prepend(kcl[int(_r[2]) - 1], line_idx, True)
                 line_idx += 1
-        lambda_array += [lambda x : eval(eqn) for eqn in kcl]
-        lambda_array.append(lambda x : eval(pwr_cons))
+        lambda_array += kcl
         assert num_lines == line_idx
-        fmt_soln(solve(top_lambda))
+        l_fn_str = "[" + ",".join(lambda_array) + "]"
+        l_fn = lambda x : eval(l_fn_str)
+        soln = solve(l_fn)
+        fmt_soln(soln)
+        ###
+        # print("KCL")
+        # for _k in kcl:
+        #     print(_k)
+        ###
+        # lambda_array += [lambda x : eval(eqn) for eqn in kcl]
+        # top_lambda = lambda x : [l(x) for l in lambda_array]
+        # fmt_soln(solve(top_lambda))
