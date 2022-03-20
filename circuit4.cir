@@ -1,0 +1,12 @@
+V1 1 0 "x[t+dt][0]-1"
+R1 1 2 "(x[t+dt][0]-x[t+dt][1])-(x[t+dt][5]*1.00)"
+L1 2 3 "((x[t+dt][1]-x[t+dt][2])*dt) - 1.00*(x[t+dt][6]-x[t][6])"
+R2 2 0 "(x[t+dt][1]-0.00)-(x[t+dt][7]*1.00)"
+R3 2 3 "(x[t+dt][1]-x[t+dt][2])-(x[t+dt][8]*1.00)"
+R4 3 4 "(x[t+dt][2]-x[t+dt][3])-(x[t+dt][9]*1.00)"
+C1 3 4 "(x[t+dt][10]*dt)-(1.00*(x[t+dt][2]-x[t+dt][3]))"
+V2 4 0 "x[t+dt][3]-1"
+R5 3 0 "(x[t+dt][2]-0.00)-(x[t+dt][12]*1.00)"
+
+*** x -> dictionary mapping timestep to vector of currents and voltages
+*** TODO: initial conditions
