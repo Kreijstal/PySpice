@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import scipy.optimize
+from scipy.optimize import root
 import sys
 
 # TODO x -> dictionary mapping timestep to vector of currents and voltages
@@ -49,7 +49,7 @@ def get_kcl_eqns(lines):
     return [["\"" + k + "\"" for k in kcl],num_nodes,num_branches]
 
 def solve(fn, output_len):
-    return scipy.optimize.root(fn, [1.00] * (output_len), method='broyden1').x
+    return root(fn, [1.00] * (output_len), method='broyden1').x
 
 def fmt_soln(x, num_nodes, num_branches):
     for n in range(num_nodes - 1):
