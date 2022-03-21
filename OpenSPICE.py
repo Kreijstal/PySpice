@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
-import numpy
-import re
 import scipy.optimize
 import sys
-import sympy
 
 # TODO x -> dictionary mapping timestep to vector of currents and voltages
 # TODO initial conditions
@@ -52,25 +49,13 @@ def get_kcl_eqns(lines):
     return [["\"" + k + "\"" for k in kcl],num_nodes,num_branches]
 
 def solve(fn, output_len):
-    return scipy.optimize.root(fn, numpy.ones(output_len), method='broyden1').x
+    return scipy.optimize.root(fn, [1.00] * (output_len), method='broyden1').x
 
 def fmt_soln(x, num_nodes, num_branches):
     for n in range(num_nodes - 1):
         print("V{} = {} [V]".format(n + 1, x[n]))
     for b in range(num_branches):
         print("I{} = {} [A]".format(b, x[num_nodes + b - 1]))
-
-def make_simple(fn_str, x_len):
-    for i in range(x_len - 1, -1, -1):
-        exec("x_{} = sympy.symbols('x_{}')".format(i, i))
-        fn_str = fn_str.replace("x[{}]".format(i), "(x_{})".format(i))
-    fn_str_arr = eval(fn_str)
-    for i in range(len(fn_str_arr)):
-        fn_str_arr[i] = sympy.simplify(fn_str_arr[i])
-    fn_str = str(fn_str_arr)
-    for i in range(x_len - 1, -1, -1):
-        fn_str = fn_str.replace("x_{}".format(i), "x[{}]".format(i))
-    return fn_str
 
 # Take array of expressions and initial condition expressions
 # and solve op point.
@@ -87,7 +72,6 @@ def op_pt(netlist):
     iv_relations = l_arr
     [kcl_relations,num_nodes,num_branches] = get_kcl_eqns(lines)
     l_fn_str = "[" + ",".join([eval(s.replace('dt', str(dt))) for s in iv_relations + kcl_relations]) + "]"
-    l_fn_str = make_simple(l_fn_str, len(iv_relations) + len(kcl_relations))
     l_fn = lambda x : eval(l_fn_str)
     soln = solve(l_fn, len(iv_relations) + len(kcl_relations))
     return [soln,num_nodes,num_branches]
