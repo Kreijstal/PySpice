@@ -2,21 +2,30 @@
 from scipy.optimize import root
 import sys
 
+END_T = 10.00
+DT = 0.01
+
 # TODO x -> dictionary mapping timestep to vector of currents and voltages
 # TODO initial conditions
 
 # Foundational functions
 
 # Take limit of expression t -> inf
-def inflim(expr, dt):
-    return expr.replace('x[t+dt]', 'x').replace('x[t]', 'x')
+def inflim(expr, seed, dt):
+    if len(seed) == 0:
+        return expr.replace('x[t+dt]', 'x').replace('x[t]', 'x')
+    else:
+        for s in range(len(seed)):
+            repl_str = 'x[t][{}]'.format(s)
+            expr = expr.replace(repl_str, str(seed[s]))
+        return expr.replace('x[t+dt]', 'x')
 
 # process netlist expressions with function f
-def process_netlist_expr(lines, f, dt):
+def process_netlist_expr(lines, f, dt, seed=[], mid_trans=False):
     for i in range(len(lines)):
-        lines[i][3] = f(lines[i][3], dt)
-        if len(lines[i]) == 5:
-            lines[i][4] = f(lines[i][4], dt)
+        lines[i][3] = f(lines[i][3], seed, dt)
+        if len(lines[i]) == 5 and not mid_trans:
+            lines[i][4] = f(lines[i][4], seed, dt)
     return lines
 
 def get_nodes(lines):
@@ -63,12 +72,14 @@ def fmt_soln(x, num_nodes, num_branches):
 # Op point
 # 1) Substitute constant dt and t -> inf.
 # 2) Use Broyden's to solve at a single timestep
-def op_pt(netlist):
-    dt = 1.0
+def op_pt(netlist, mid_trans=False, seed=[], dt=1.0):
     lines = [n.split(" ") for n in netlist.split("\n") if n != ""]
-    lines = process_netlist_expr(lines, inflim, dt)
+    lines = process_netlist_expr(lines, inflim, dt, seed, mid_trans)
     # Note: Replace len(l) - 1 with 3 for transient nextstep function
-    l_arr = [l[len(l)-1] for l in lines]
+    if mid_trans:
+        l_arr = [l[3] for l in lines]
+    else:
+        l_arr = [l[len(l)-1] for l in lines]
     iv_relations = l_arr
     [kcl_relations,num_nodes,num_branches] = get_kcl_eqns(lines)
     l_fn_str = "[" + ",".join([eval(s.replace('dt', str(dt))) for s in iv_relations + kcl_relations]) + "]"
@@ -80,8 +91,24 @@ def op_pt(netlist):
 # 1) Create initial condition equations and calculate
 # 2) Set x[0] to initial condition
 # 3) Loop. Update t on each timestep.
+def transient(netlist):
+    trans_soln = []
+    for i in range(int(END_T / DT)):
+        if i == 0:
+            soln = op_pt(netlist)
+        else:
+            soln = op_pt(netlist, mid_trans=True, seed=trans_soln[len(trans_soln)-1], dt=DT)
+        trans_soln.append(soln[0])
+    return trans_soln
 
 if __name__ == "__main__":
     with open(sys.argv[1], "r") as txt:
-        [soln,n_nodes,n_branches] = op_pt(txt.read())
+        # [soln,n_nodes,n_branches] = op_pt(txt.read())
+        x = transient(txt.read())
+        print([_x[1] for _x in x])
+        # from numpy import linspace
+        # import matplotlib.pyplot as plt
+        # t = linspace(0.00, END_T, int(END_T / DT))
+        # plt.plot(t, [_x[1] for _x in x])
+        # plt.show()
         # fmt_soln(soln, n_nodes, n_branches)
