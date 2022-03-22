@@ -82,8 +82,8 @@ def op_pt(netlist, mid_trans=False, seed=[], dt=1.0):
         l_arr = [l[len(l)-1] for l in lines]
     iv_relations = l_arr
     [kcl_relations,num_nodes,num_branches] = get_kcl_eqns(lines)
-    l_fn_str = "[" + ",".join([eval(s.replace('dt', str(dt))) for s in iv_relations + kcl_relations]) + "]"
-    l_fn = lambda x : eval(l_fn_str)
+    l_fn_str = "lambda x : [" + ",".join([eval(s.replace('dt', str(dt))) for s in iv_relations + kcl_relations]) + "]"
+    l_fn = eval(l_fn_str)
     soln = solve(l_fn, len(iv_relations) + len(kcl_relations))
     return [soln,num_nodes,num_branches]
 
