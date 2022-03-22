@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 from scipy.optimize import root
-import sys
+from sys import argv
 
 END_T = 10.00
 DT = 0.01
@@ -101,7 +101,7 @@ def transient(netlist):
     return trans_soln
 
 if __name__ == "__main__":
-    with open(sys.argv[1], "r") as txt:
+    with open(argv[1], "r") as txt:
         # [soln,n_nodes,n_branches] = op_pt(txt.read())
         x = transient(txt.read())
         print([_x[1] for _x in x])
