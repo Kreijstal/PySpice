@@ -55,7 +55,7 @@ def get_kcl_eqns(lines):
             kcl[int(lines[i][1])-1] = kcl_prepend(kcl[int(lines[i][1])-1], num_nodes, i, False)
         if lines[i][2] != "0":
             kcl[int(lines[i][2])-1] = kcl_prepend(kcl[int(lines[i][2])-1], num_nodes, i, True)
-    return [["\"" + k + "\"" for k in kcl],num_nodes,num_branches]
+    return [kcl,num_nodes,num_branches]
 
 def solve(fn, output_len):
     return root(fn, [1.00] * (output_len)).x
@@ -77,12 +77,11 @@ def op_pt(netlist, mid_trans=False, seed=[], dt=1.0):
     lines = process_netlist_expr(lines, inflim, dt, seed, mid_trans)
     # Note: Replace len(l) - 1 with 3 for transient nextstep function
     if mid_trans:
-        l_arr = [l[3] for l in lines]
+        iv_relations = [l[3] for l in lines]
     else:
-        l_arr = [l[len(l)-1] for l in lines]
-    iv_relations = l_arr
+        iv_relations = [l[len(l)-1] for l in lines]
     [kcl_relations,num_nodes,num_branches] = get_kcl_eqns(lines)
-    l_fn_str = "lambda x : [" + ",".join([eval(s.replace('dt', str(dt))) for s in iv_relations + kcl_relations]) + "]"
+    l_fn_str = "lambda x : [" + ",".join([s.replace('dt', str(dt)) for s in iv_relations + kcl_relations]) + "]"
     l_fn = eval(l_fn_str)
     soln = solve(l_fn, len(iv_relations) + len(kcl_relations))
     return [soln,num_nodes,num_branches]
