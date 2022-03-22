@@ -1,17 +1,20 @@
 .title Lolcatz
 
-V1 1 0 1
+*** V1 1 0 1
+V1 1 0 SIN(0 1 1 0 0 0)
 R1 1 2 1
 L1 2 3 1 ic=0
 R2 2 0 1
 R3 2 3 1
 R4 3 4 1
 C1 3 4 1 ic=0
-V2 4 0 1
+*** V2 4 0 1
+V2 4 0 SIN(0 1 1 0 0 0)
 R5 3 0 1
 
 .control
     tran 1m 10 uic
+    *** plot v(1)
     print v(1)
     quit
 .endc

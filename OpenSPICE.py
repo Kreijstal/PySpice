@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
+from math import sin, pi
 from scipy.optimize import root
 from sys import argv
 
-END_T = 10.00
+END_T = 30.00
 DT = 0.01
 
 # TODO x -> dictionary mapping timestep to vector of currents and voltages
@@ -11,21 +12,21 @@ DT = 0.01
 # Foundational functions
 
 # Take limit of expression t -> inf
-def inflim(expr, seed, dt):
-    if len(seed) == 0:
-        return expr.replace('x[t+dt]', 'x').replace('x[t]', 'x')
+def inflim(expr, seed, dt, mid_trans, timestep):
+    if not mid_trans:
+        expr = expr.replace('x[t+dt]', 'x').replace('x[t]', 'x')
     else:
         for s in range(len(seed)):
-            repl_str = 'x[t][{}]'.format(s)
-            expr = expr.replace(repl_str, str(seed[s]))
-        return expr.replace('x[t+dt]', 'x')
+            expr = expr.replace('x[t][%d]' % s, str(seed[s]))
+        expr = expr.replace('x[t+dt]', 'x')
+    return expr.replace('dt', str(dt)).replace('t', str(timestep))
 
 # process netlist expressions with function f
-def process_netlist_expr(lines, f, dt, seed=[], mid_trans=False):
+def process_netlist_expr(lines, f, dt, seed=[], mid_trans=False, timestep=0.0):
     for i in range(len(lines)):
-        lines[i][3] = f(lines[i][3], seed, dt)
+        lines[i][3] = f(lines[i][3], seed, dt, mid_trans, timestep)
         if len(lines[i]) == 5 and not mid_trans:
-            lines[i][4] = f(lines[i][4], seed, dt)
+            lines[i][4] = f(lines[i][4], seed, dt, mid_trans, timestep)
     return lines
 
 def get_nodes(lines):
@@ -72,16 +73,16 @@ def fmt_soln(x, num_nodes, num_branches):
 # Op point
 # 1) Substitute constant dt and t -> inf.
 # 2) Use Broyden's to solve at a single timestep
-def op_pt(netlist, mid_trans=False, seed=[], dt=1.0):
+def op_pt(netlist, mid_trans=False, seed=[], dt=1.0, timestep=0.0):
     lines = [n.split(" ") for n in netlist.split("\n") if n != ""]
-    lines = process_netlist_expr(lines, inflim, dt, seed, mid_trans)
+    lines = process_netlist_expr(lines, inflim, dt, seed, mid_trans, timestep)
     # Note: Replace len(l) - 1 with 3 for transient nextstep function
     if mid_trans:
         iv_relations = [l[3] for l in lines]
     else:
         iv_relations = [l[len(l)-1] for l in lines]
     [kcl_relations,num_nodes,num_branches] = get_kcl_eqns(lines)
-    l_fn_str = "lambda x : [" + ",".join([s.replace('dt', str(dt)) for s in iv_relations + kcl_relations]) + "]"
+    l_fn_str = "lambda x : [" + ",".join(iv_relations + kcl_relations) + "]"
     l_fn = eval(l_fn_str)
     soln = solve(l_fn, len(iv_relations) + len(kcl_relations))
     return [soln,num_nodes,num_branches]
@@ -96,7 +97,7 @@ def transient(netlist):
         if i == 0:
             soln = op_pt(netlist)
         else:
-            soln = op_pt(netlist, mid_trans=True, seed=trans_soln[len(trans_soln)-1], dt=DT)
+            soln = op_pt(netlist, mid_trans=True, seed=trans_soln[len(trans_soln)-1], dt=DT, timestep=DT*i)
         trans_soln.append(soln[0])
     return trans_soln
 

@@ -1,1 +1,1 @@
-python3 -m cProfile -s cumtime ./OpenSPICE.py circuit4_trans.cir > log
+python3 -m cProfile -s cumtime ./OpenSPICE.py circuit5_trans_os.cir > log
