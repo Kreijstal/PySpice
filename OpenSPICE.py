@@ -58,7 +58,7 @@ def get_kcl_eqns(lines):
     return [["\"" + k + "\"" for k in kcl],num_nodes,num_branches]
 
 def solve(fn, output_len):
-    return root(fn, [1.00] * (output_len), method='hybrd').x
+    return root(fn, [1.00] * (output_len)).x
 
 def fmt_soln(x, num_nodes, num_branches):
     for n in range(num_nodes - 1):
