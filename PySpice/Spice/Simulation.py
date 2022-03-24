@@ -1162,6 +1162,9 @@ class CircuitSimulator(CircuitSimulation):
             sub_cls = XyceCircuitSimulator
             if simulator == 'xyce-parallel':
                 kwargs['parallel'] = True
+        elif simulator in {'OpenSPICE'}:
+            from .OpenSPICE.Simulation import OpenSPICECircuitSimulator
+            sub_cls = OpenSPICECircuitSimulator
 
         if sub_cls is not None:
             return sub_cls(circuit, *args, **kwargs)

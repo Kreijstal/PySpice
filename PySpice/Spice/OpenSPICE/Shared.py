@@ -74,9 +74,9 @@ the shared library by worker as explained in the manual.
 ####################################################################################################
 
 __all__ = [
-    'NgSpiceCircuitError',
-    'NgSpiceCommandError',
-    'NgSpiceShared',
+    'OpenSPICECircuitError',
+    'OpenSPICECommandError',
+    'OpenSPICEShared',
 ]
 
 ####################################################################################################
@@ -115,10 +115,10 @@ _module_logger = logging.getLogger(__name__)
 
 ####################################################################################################
 
-class NgSpiceCircuitError(NameError):
+class OpenSPICECircuitError(NameError):
     pass
 
-class NgSpiceCommandError(NameError):
+class OpenSPICECommandError(NameError):
     pass
 
 ####################################################################################################
@@ -392,9 +392,9 @@ class Plot(dict):
 
 ####################################################################################################
 
-class NgSpiceShared:
+class OpenSPICEShared:
 
-    _logger = _module_logger.getChild('NgSpiceShared')
+    _logger = _module_logger.getChild('OpenSPICEShared')
 
     NGSPICE_PATH = None
     LIBRARY_PATH = None
@@ -409,28 +409,17 @@ class NgSpiceShared:
 
         if ConfigInstall.OS.on_windows:
             if platform.architecture()[0] != '64bit':
-                raise NameError('Windows 32bit is no longer supported by NgSpice')
+                raise NameError('Windows 32bit is no longer supported by OpenSPICE')
 
-        _ = os.environ.get('NGSPICE_LIBRARY_PATH', None)
+        _ = os.environ.get('OPENSPICE_LIBRARY_PATH', None)
         if _ is not None:
             cls.LIBRARY_PATH = _
         else:
             if ConfigInstall.OS.on_windows:
-                # Check for MSYSTEM environment first
-                msystem = os.environ.get('MSYSTEM')
-                mingw_prefix = os.environ.get('MINGW_PREFIX')
-
-                if msystem and mingw_prefix:
-                    # Use MINGW paths
-                    path = str(Path(mingw_prefix) / 'bin' / 'libngspice-0{}.dll')
-                    if 'SPICE_LIB_DIR' not in os.environ:
-                        os.environ['SPICE_LIB_DIR'] = str(Path(mingw_prefix) / 'share' / 'ngspice' / 'scripts')
-                else:
-                    # Fall back to original Windows paths
-                    ngspice_path = Path(__file__).parent.joinpath('Spice64_dll')
-                    cls.NGSPICE_PATH = ngspice_path
-                    # path = ngspice_path.joinpath('dll-vs', 'ngspice-{version}{id}.dll')
-                    path = str(ngspice_path.joinpath('dll-vs', 'ngspice{}.dll'))
+                ngspice_path = Path(__file__).parent.joinpath('Spice64_dll')
+                cls.NGSPICE_PATH = ngspice_path
+                # path = ngspice_path.joinpath('dll-vs', 'ngspice-{version}{id}.dll')
+                path = ngspice_path.joinpath('dll-vs', 'ngspice{}.dll')
 
             elif ConfigInstall.OS.on_osx:
                 path = 'libngspice{}.dylib'
@@ -452,7 +441,7 @@ class NgSpiceShared:
 
     @classmethod
     def new_instance(cls, ngspice_id=0, send_data=False, verbose=False):
-        """Create a NgSpiceShared instance"""
+        """Create an OpenSPICEShared instance"""
 
         # Fixme: send_data
 
@@ -470,7 +459,7 @@ class NgSpiceShared:
 
         """ Set the *send_data* flag if you want to enable the output callback.
 
-        Set the *ngspice_id* to an integer value if you want to run NgSpice in parallel.
+        Set the *ngspice_id* to an integer value if you want to run OpenSPICE in parallel.
         """
 
         self._ngspice_id = ngspice_id
@@ -490,8 +479,6 @@ class NgSpiceShared:
         self._extensions = []
 
         self._library_path = None
-        self._load_library(verbose)
-        self._init_ngspice(send_data)
 
         self._is_running = False
 
@@ -516,146 +503,10 @@ class NgSpiceShared:
 
     ##############################################
 
-    def _load_library(self, verbose):
-
-        if ConfigInstall.OS.on_windows:
-            # https://sourceforge.net/p/ngspice/discussion/133842/thread/1cece652/#4e32/5ab8/9027
-            # When environment variable SPICE_LIB_DIR is empty, ngspice looks in C:\Spice64\share\ngspice\scripts
-            # Else it tries %SPICE_LIB_DIR%\scripts\spinit
-            if 'SPICE_LIB_DIR' not in os.environ:
-                _ = str(Path(self.NGSPICE_PATH).joinpath('share', 'ngspice'))
-                os.environ['SPICE_LIB_DIR'] = _
-                # self._logger.warning('Set SPICE_LIB_DIR = %s', _)
-
-        # Fixme: not compatible with supra
-        # if 'CONDA_PREFIX' in os.environ:
-        #     _ = str(Path(os.environ['CONDA_PREFIX']).joinpath('share', 'ngspice'))
-        #     os.environ['SPICE_LIB_DIR'] = _
-        #     self._logger.warning('Set SPICE_LIB_DIR = %s', _)
-
-        # https://sourceforge.net/p/ngspice/bugs/490
-        # ngspice and Kicad do setlocale(LC_NUMERIC, "C");
-        if ConfigInstall.OS.on_windows:
-            self._logger.debug('locale LC_NUMERIC is not forced to C')
-        elif ConfigInstall.OS.on_linux or ConfigInstall.OS.on_osx:
-            self._logger.debug('Set locale LC_NUMERIC to C')
-            import locale
-            locale.setlocale(locale.LC_NUMERIC, 'C')
-
-        api_path = Path(__file__).parent.joinpath('api.h')
-        with open(api_path) as fh:
-            ffi.cdef(fh.read())
-
-        message = 'Load library {}'.format(self.library_path)
-        self._logger.debug(message)
-        if verbose:
-            print(message)
-        self._ngspice_shared = ffi.dlopen(self.library_path)
-
-        # Note: cannot yet execute command
-
-    ##############################################
-
-    def _init_ngspice(self, send_data):
-
-        # Ngspice API: ngSpice_Init ngSpice_Init_Sync
-
-        self._send_char_c = ffi.callback('int (char *, int, void *)', self._send_char)
-        self._send_stat_c = ffi.callback('int (char *, int, void *)', self._send_stat)
-        self._exit_c = ffi.callback('int (int, bool, bool, int, void *)', self._exit)
-        self._send_init_data_c = ffi.callback('int (pvecinfoall, int, void *)', self._send_init_data)
-        self._background_thread_running_c = ffi.callback('int (bool, int, void *)', self._background_thread_running)
-
-        if send_data:
-            self._send_data_c = ffi.callback('int (pvecvaluesall, int, int, void *)', self._send_data)
-        else:
-            self._send_data_c = FFI.NULL
-
-        self._get_vsrc_data_c = ffi.callback('int (double *, double, char *, int, void *)', self._get_vsrc_data)
-        self._get_isrc_data_c = ffi.callback('int (double *, double, char *, int, void *)', self._get_isrc_data)
-
-        self_c = ffi.new_handle(self)
-        self._self_c = self_c  # To prevent garbage collection
-
-        rc = self._ngspice_shared.ngSpice_Init(self._send_char_c,
-                                               self._send_stat_c,
-                                               self._exit_c,
-                                               self._send_data_c,
-                                               self._send_init_data_c,
-                                               self._background_thread_running_c,
-                                               self_c)
-        if rc:
-            raise NameError("Ngspice_Init returned {}".format(rc))
-
-        ngspice_id_c = ffi.new('int *', self._ngspice_id)
-        self._ngspice_id = ngspice_id_c  # To prevent garbage collection
-        rc = self._ngspice_shared.ngSpice_Init_Sync(self._get_vsrc_data_c,
-                                                    self._get_isrc_data_c,
-                                                    FFI.NULL,  # GetSyncData
-                                                    ngspice_id_c,
-                                                    self_c)
-        if rc:
-            raise NameError("Ngspice_Init_Sync returned {}".format(rc))
-
-        self._get_version()
-
-        try:
-            self._simulation_type = EnumFactory('SimulationType', SIMULATION_TYPE[self._ngspice_version])
-        except KeyError:
-            # See SimulationType.py
-            self._simulation_type = EnumFactory('SimulationType', SIMULATION_TYPE['last'])
-            self._logger.warning("Unsupported Ngspice version {}".format(self._ngspice_version))
-        self._type_to_unit = {
-            self._simulation_type.time: u_s,
-            self._simulation_type.voltage: u_V,
-            self._simulation_type.current: u_A,
-            self._simulation_type.frequency: u_Hz,
-            self._simulation_type.capacitance: u_F,
-            self._simulation_type.temperature: u_Degree,
-        }
-
-        # Prevent paging output of commands (hangs)
-        self.set('nomoremode')
-
-    ##############################################
-
     @staticmethod
-    def _send_char(message_c, ngspice_id, user_data):
+    def _send_char(message, ngspice_id, user_data):
 
         """Callback for sending output from stdout, stderr to caller"""
-
-        self = ffi.from_handle(user_data)
-        _module_logger.debug(str(ffi.string(message_c)))
-        message = ffi_string_utf8(message_c)
-
-        # split message in "<prefix><match = ' '><content>"
-        prefix, _, content = message.partition(' ')
-        if prefix == 'stderr':
-            self._stderr.append(content)
-            if content.startswith('Warning:'):
-                func = self._logger.warning
-            elif content.startswith('Using'): # Ignore "Using ... as Direct Linear Solver" messages
-                func = self._logger.debug
-            elif content.startswith('doAnalyses:'): 
-                func = self._logger.debug
-            elif content.startswith('run simulation interrupted'): 
-                func = self._logger.debug
-            else:
-                self._error_in_stderr = True
-                func = self._logger.error
-                if content.strip() == "Note: can't find init file.":
-                    self._spinit_not_found = True
-                    self._logger.warning('spinit was not found')
-            func(content)
-        else:
-            self._stdout.append(content)
-            # Fixme: Ngspice writes error on stdout and stderr ...
-            if 'error' in content.lower():
-                self._error_in_stdout = True
-            # if self._error_in_stdout:
-            #     self._logger.warning(content)
-
-        # Fixme: ???
         return self.send_char(message, ngspice_id)
 
     ##############################################
@@ -716,7 +567,6 @@ class NgSpiceShared:
         self = ffi.from_handle(user_data)
         self._logger.debug('ngspice_id-{} background_thread_running {}'.format(ngspice_id, is_running))
         self._is_running = is_running
-        return 0
 
     ##############################################
 
@@ -807,7 +657,7 @@ class NgSpiceShared:
         if lines:
             values = dict(description=lines[0])
             values.update({
-                parts[0]: NgSpiceShared._to_python(parts[1])
+                parts[0]: OpenSPICEShared._to_python(parts[1])
                 for parts in map(str.split, lines)
             })
             return values
@@ -868,7 +718,7 @@ class NgSpiceShared:
             raise NameError("ngSpice_Command '{}' returned {}".format(command, rc))
 
         if self._error_in_stdout or self._error_in_stderr:
-            raise NgSpiceCommandError("Command '{}' failed".format(command))
+            raise OpenSPICECommandError("Command '{}' failed".format(command))
 
         if join_lines:
             return self.stdout
@@ -1087,7 +937,7 @@ class NgSpiceShared:
                 parts = line.split(' = ')
             else:
                 parts = line.split(': ')
-            values[parts[0]] = NgSpiceShared._to_python(parts[1])
+            values[parts[0]] = OpenSPICEShared._to_python(parts[1])
         return values
 
     ##############################################
@@ -1187,7 +1037,7 @@ class NgSpiceShared:
         # Fixme: https://sourceforge.net/p/ngspice/bugs/496/
         if self._error_in_stdout:
             self._logger.error('\n' + self.stdout)
-            raise NgSpiceCircuitError('')
+            raise OpenSPICECircuitError('')
 
         # for line in circuit_lines:
         #     rc = self._ngspice_shared.ngSpice_Command(('circbyline ' + line).encode('utf8'))
@@ -1341,4 +1191,4 @@ class NgSpiceShared:
 # Platform setup
 #
 
-NgSpiceShared.setup_platform()
+OpenSPICEShared.setup_platform()
