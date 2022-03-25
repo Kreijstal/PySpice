@@ -64,16 +64,16 @@ def get_kcl_eqns(lines):
     nodes = get_nodes(lines)
     assert nodes[0] == 0
     num_nodes = len(nodes)
-    node_dict = dict(zip(nodes, range(num_nodes)))
+    node_dict = dict(zip(nodes[1:], range(len(nodes[1:]))))
     num_branches = len(lines)
     kcl = [""] * (num_nodes - 1)
     lines = [n.split(" ") for n in lines.split("\n") if n != ""]
     for i in range(len(lines)):
-        node_0 = node_dict[int(lines[i][1])]
-        node_1 = node_dict[int(lines[i][2])]
-        if node_0 != 0:
+        if lines[i][1] != "0":
+            node_0 = node_dict[int(lines[i][1])]
             kcl[node_0-1] = kcl_prepend(kcl[node_0-1], num_nodes, i, False)
-        if node_1 != 0:
+        if lines[i][2] != "0":
+            node_1 = node_dict[int(lines[i][2])]
             kcl[node_1-1] = kcl_prepend(kcl[node_1-1], num_nodes, i, True)
     return [kcl,num_nodes,num_branches,node_dict]
 
@@ -134,8 +134,8 @@ def transient(netlist):
         trans_soln.append(soln)
         global send_data
         DUMMY_SPICE_ID = 0
-        voltage_list = ['V({})'.format(n) for n in get_nodes(netlist)]
-        actual_vector_values = dict(zip(voltage_list, [soln[node_dict[n]] for n in get_nodes(netlist)]))
+        voltage_list = ['V({})'.format(n) for n in get_nodes(netlist) if n != 0]
+        actual_vector_values = dict(zip(voltage_list, [soln[node_dict[n]] for n in get_nodes(netlist) if n != 0]))
         actual_vector_values['time'] = DT*i
         number_of_vectors = num_nodes
         timesteps.append(DT*i)
@@ -205,7 +205,7 @@ def netlist_translate(netlist_txt, nodes_arr):
                                                                      next_v_txt(_line[2]),
                                                                      curr_v_txt(_line[1]),
                                                                      curr_v_txt(_line[2]))
-                _line[4] = "({}-{})-{}".format(next_v_txt(_line[1]), next_v_txt(_line[2]), _line[4].replace("ic=","").replace("V",""))
+                _line[4] = "({}-{})-{}".format(curr_v_txt(_line[1]), curr_v_txt(_line[2]), _line[4].replace("ic=","").replace("V",""))
             elif line[0] == "B":
                 # Behavioral sources
                 if _line[3][0] == "i":
