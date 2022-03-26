@@ -37,7 +37,8 @@ def inflim(expr, seed, dt, mid_trans, timestep):
         for s in range(len(seed)):
             expr = expr.replace('x[t][%d]' % s, str(seed[s]))
         expr = expr.replace('x[t+dt]', 'x')
-    return expr.replace('dt', str(dt)).replace('t', str(timestep))
+    expr = expr.replace('dt', str(dt)).replace('t', str(timestep))
+    return expr
 
 # process netlist expressions with function f
 def process_netlist_expr(lines, f, dt, seed=[], mid_trans=False, timestep=0.0):
@@ -204,7 +205,8 @@ def netlist_translate(netlist_txt, nodes_arr):
             elif line[0] == "I":
                 # Current source
                 _line[3] = _line[3].replace('dc', 'dci')
-                _line[3] = "({}-{})-({})".format(next_i_txt(line_count, len(nodes_arr)), curr_i_txt(line_count, len(nodes_arr)), _line[3].replace("A", ""))
+                _line[3] = "({})-({})".format(next_i_txt(line_count, len(nodes_arr)),
+                                              _line[3].replace("A", ""))
                 if len(_line) == 6 and _line[5] == "external":
                     del _line[5]
                     del _line[4]
@@ -250,7 +252,6 @@ def netlist_translate(netlist_txt, nodes_arr):
             else:
                 assert False
             next_line = " ".join(_line) + "\n"
-            print(next_line)
             new_netlist_txt += next_line
             line_count += 1
     return new_netlist_txt
@@ -267,9 +268,6 @@ def filter_dot_statements(contents_txt):
     return "\n".join(contents_txt_arr)
 
 def spice_input(input_filename, output_filename):
-    # sp = SpiceParser(source=spice_txt)
-    # print(sp)
-    # dump raw file for op point sim
     with open(input_filename, "r") as netlist_file:
         netlist_file_contents = netlist_file.read()
         netlist_file_contents = filter_dot_statements(netlist_file_contents)
@@ -293,16 +291,3 @@ def spice_input(input_filename, output_filename):
                 s = soln[j]
                 spice_raw_file_txt += "".join([str(timesteps[j])] + [format_float(v) for i,v in enumerate(s) if i < len(voltage_list)]) + "\n"
             spice_raw_file.write(spice_raw_file_txt)
-
-if __name__ == "__main__":
-    print("argv[1] = {}, argv[2] = {}, argv[3] = {}".format(argv[1], argv[2], argv[3]))
-    with open(argv[1], "r") as txt:
-        # spice_input(txt.read())
-        spice_input(argv[3])
-        # x = transient(txt.read())
-        # print([_x[1] for _x in x])
-        # from numpy import linspace
-        # import matplotlib.pyplot as plt
-        # t = linspace(0.00, END_T, int(END_T / DT))
-        # plt.plot(t, [_x[1] for _x in x])
-        # plt.show()
