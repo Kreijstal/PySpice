@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-from math import sin, pi
+from math import sin, pi, exp
 from scipy.optimize import root
 from sys import argv
 from PySpice.Spice.Parser import SpiceParser
 import struct
+from functools import reduce
+from operator import concat
 
 get_vsrc = None
 get_isrc = None
@@ -181,53 +183,124 @@ def filter_voltages(input_str, nodes_arr):
         input_str = input_str.replace("v({})".format(node), next_v_txt(str(node), nodes_arr))
     return input_str
 
+def paranth_split(arr):
+    par_split = [(i, k.split(")")) if ")" in k else (i, k) for i,k in enumerate(arr.split("("))]
+    par_split_dict = dict(par_split)
+    par_replace = [(_y[0], _y[1][0].replace(" ", ",")) for _y in par_split if type(_y[1]) == list]
+    par_replace_dict = dict(par_replace)
+    final_list = [['(' + par_replace_dict[i] + ')'] + v[1:] if type(v) == list else [v] for i,v in enumerate(par_split_dict.values())]
+    return "".join(reduce(concat, final_list))
+
+def filter_sin(txt):
+    # txt is expected to be of the form SIN(X,X,X,X,X,X)
+    interior = txt[txt.find("(")+1:][:-1]
+    assert "SIN(" + interior + ")" == txt
+    param_list = interior.split(",")
+    param_names = ["(V0)", "(VA)", "(FREQ)", "(TD)", "(THETA)", "(PHASE)"]
+    print(param_list)
+    print(param_names)
+    assert len(param_list) <= len(param_names)
+    assert len(param_list) >= 2
+    if len(param_list) < len(param_names):
+        sub_dict = {}
+        for i in range(len(param_list)):
+            sub_dict[param_names[i]] = param_list[i].replace("Hz","")\
+                                                    .replace("s","")\
+                                                    .replace("V","")\
+                                                    .replace("k","e3")\
+                                                    .replace("u","e-6")\
+                                                    .replace("m","e-3")
+        print("len(param_list) = {}".format(len(param_list)))
+        if len(param_list) <= 5:
+            sub_dict[param_names[5]] = str(0.0)
+        if len(param_list) <= 4:
+            sub_dict[param_names[4]] = str(0.0)
+        if len(param_list) <= 3:
+            sub_dict[param_names[3]] = str(0.0)
+        if len(param_list) <= 2:
+            sub_dict[param_names[2]] = str(1.0 / END_T)
+    else:
+        sub_dict = dict(zip(param_names, param_list))
+    cond0 = "0<=t<(TD)"
+    cond1 = "t>=(TD)"
+    state0 = "((V0))"
+    state1 = "((V0))+((VA)*exp(-(t-((TD)))*((THETA)))*sin(2*pi*((FREQ))*(t-(TD))+((PHASE))))"
+    for l in param_names:
+        cond0  = cond0 .replace(l, sub_dict[l])
+        cond1  = cond1 .replace(l, sub_dict[l])
+        state0 = state0.replace(l, sub_dict[l])
+        state1 = state1.replace(l, sub_dict[l])
+    interior = "((({})*({}))+(({})*({})))".format(cond0,state0,cond1,state1)
+    return "sin(" + interior + ")"
+
 def netlist_translate(netlist_txt, nodes_arr):
     new_netlist_txt = ""
     line_count = 0
     for line in netlist_txt.split("\n"):
         if line != "":
             _line = line.split(" ")
+            print(_line)
             if line[0] == "R":
                 # Resistor
+                _line[3] = _line[3].replace("Ohm", "")
                 _line[3] = _line[3].replace("k","e3")
+                _line[3] = _line[3].replace("u","e-6")
+                _line[3] = _line[3].replace("m","e-3")
                 _line[3] = "({}-{})-(({})*({}))".format(next_v_txt(_line[1], nodes_arr),
                                                         next_v_txt(_line[2], nodes_arr),
-                                                        next_i_txt(line_count, len(nodes_arr)), _line[3].replace("Ohm", ""))
+                                                        next_i_txt(line_count, len(nodes_arr)), _line[3])
             elif line[0] == "V":
                 # Voltage source
+                _line[3] = _line[3].replace("V", "")
                 _line[3] = _line[3].replace("k","e3")
+                _line[3] = _line[3].replace("u","e-6")
+                _line[3] = _line[3].replace("m","e-3")
                 _line[3] = _line[3].replace('dc', 'dcv')
+                if len(_line) == 8:
+                    dc_offset = _line[4].replace("V","")
+                    ac_amplitude = _line[6].replace("V","")
+                    _line[3] = "({})*({})+({})".format(ac_amplitude, filter_sin(_line[7]), dc_offset)
+                    _line = _line[:4]
                 _line[3] = "({}-{})-({})".format(next_v_txt(_line[1], nodes_arr),
-                                                 next_v_txt(_line[2], nodes_arr), _line[3].replace("V", ""))
+                                                 next_v_txt(_line[2], nodes_arr), _line[3])
                 if len(_line) == 6 and _line[5] == "external":
                     del _line[5]
                     del _line[4]
                 assert len(_line) != 6
             elif line[0] == "I":
                 # Current source
+                _line[3] = _line[3].replace("A", "")
                 _line[3] = _line[3].replace("k","e3")
+                _line[3] = _line[3].replace("u","e-6")
+                _line[3] = _line[3].replace("m","e-3")
                 _line[3] = _line[3].replace('dc', 'dci')
                 _line[3] = "({})-({})".format(next_i_txt(line_count, len(nodes_arr)),
-                                              _line[3].replace("A", ""))
+                                              _line[3])
                 if len(_line) == 6 and _line[5] == "external":
                     del _line[5]
                     del _line[4]
                 assert len(_line) != 6
             elif line[0] == "L":
                 # Inductor
+                _line[3] = _line[3].replace("H","")
                 _line[3] = _line[3].replace("k","e3")
-                _line[3] = "(({}-{})*dt)-(({})*(({})-({}))) (({})-({}))".format(next_v_txt(line[1], nodes_arr),
-                                                                                next_v_txt(line[2], nodes_arr),
-                                                                                _line[3].replace("H", ""),
+                _line[3] = _line[3].replace("u","e-6")
+                _line[3] = _line[3].replace("m","e-3")
+                _line[3] = "(({}-{})*dt)-(({})*(({})-({}))) (({})-({}))".format(next_v_txt(_line[1], nodes_arr),
+                                                                                next_v_txt(_line[2], nodes_arr),
+                                                                                _line[3],
                                                                                 next_i_txt(line_count, len(nodes_arr)),
                                                                                 curr_i_txt(line_count, len(nodes_arr)),
-                                                                                curr_v_txt(line[1], nodes_arr),
-                                                                                curr_v_txt(line[2], nodes_arr))
+                                                                                curr_v_txt(_line[1], nodes_arr),
+                                                                                curr_v_txt(_line[2], nodes_arr))
             elif line[0] == "C":
                 # Capacitor
+                _line[3] = _line[3].replace("F", "")
                 _line[3] = _line[3].replace("k","e3")
+                _line[3] = _line[3].replace("u","e-6")
+                _line[3] = _line[3].replace("m","e-3")
                 _line[3] = "({}*dt)-(({})*(({}-{})-({}-{})))".format(next_i_txt(line_count, len(nodes_arr)),
-                                                                     _line[3].replace("F", ""),
+                                                                     _line[3],
                                                                      next_v_txt(_line[1], nodes_arr),
                                                                      next_v_txt(_line[2], nodes_arr),
                                                                      curr_v_txt(_line[1], nodes_arr),
@@ -283,8 +356,9 @@ def get_sim_type(netlist_file_contents):
 def _spice_input(input_filename, output_filename):
     with open(input_filename, "r") as netlist_file:
         netlist_file_contents = netlist_file.read()
-        print(netlist_file_contents)
         netlist_file_contents = filter_dot_statements(netlist_file_contents)
+        netlist_file_contents = "\n".join([paranth_split(n) for n in netlist_file_contents.split("\n") if n != ''])
+        print(netlist_file_contents)
         nodes_arr = get_nodes(netlist_file_contents)
         _netlist = netlist_translate(netlist_file_contents, nodes_arr)
         sim_type = get_sim_type(netlist_file_contents)
