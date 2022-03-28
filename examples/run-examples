@@ -33,7 +33,7 @@ import sys
 
 examples_path = Path(__file__).resolve().parent
 
-excluded_topics = [".travis", "transformer", "diode", "fundamental-laws", "relay",
+excluded_topics = [".travis", "transformer", "diode", "relay",
                    "transmission-lines", "switched-power-supplies", "filter",
                    "transistor", "ngspice-shared", "power-supplies",
                    "spice-parser", "passive", "operational-amplifier"]
