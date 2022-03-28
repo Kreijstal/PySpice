@@ -1124,10 +1124,10 @@ class CircuitSimulator(CircuitSimulation):
     _logger = _module_logger.getChild('CircuitSimulator')
 
     if ConfigInstall.OS.on_windows:
-        DEFAULT_SIMULATOR = 'ngspice-shared'
+        DEFAULT_SIMULATOR = 'OpenSPICE'
     else:
         # DEFAULT_SIMULATOR = 'ngspice-subprocess'
-        DEFAULT_SIMULATOR = 'ngspice-shared'
+        DEFAULT_SIMULATOR = 'OpenSPICE'
         # DEFAULT_SIMULATOR = 'xyce-serial'
         # DEFAULT_SIMULATOR = 'xyce-parallel'
 

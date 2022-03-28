@@ -53,14 +53,14 @@ def get_nodes(lines):
     for l in lines.split("\n"):
         if l != "":
             l = l.split(" ")
-            if int(l[1]) not in nodes:
-                nodes.append(int(l[1]))
-            if int(l[2]) not in nodes:
-                nodes.append(int(l[2]))
-    nodes.sort()
-    # for i in range(len(nodes)-1):
-    #     assert nodes[i+1] - nodes[i] == 1
-    assert nodes[0] == 0
+            if l[1] not in nodes:
+                nodes.append(l[1])
+            if l[2] not in nodes:
+                nodes.append(l[2])
+    assert "0" in nodes
+    nodes.remove("0")
+    nodes = ["0"] + nodes
+    assert nodes[0] == "0"
     return nodes
 
 def kcl_prepend(s, num_nodes, branch_idx, plus):
@@ -68,7 +68,6 @@ def kcl_prepend(s, num_nodes, branch_idx, plus):
 
 def get_kcl_eqns(lines):
     nodes = get_nodes(lines)
-    assert nodes[0] == 0
     num_nodes = len(nodes)
     node_dict = dict(zip(nodes[1:], range(len(nodes[1:]))))
     num_branches = len(lines)
@@ -76,10 +75,10 @@ def get_kcl_eqns(lines):
     lines = [n.split(" ") for n in lines.split("\n") if n != ""]
     for i in range(len(lines)):
         if lines[i][1] != "0":
-            node_0 = node_dict[int(lines[i][1])]
+            node_0 = node_dict[lines[i][1]]
             kcl[node_0-1] = kcl_prepend(kcl[node_0-1], num_nodes, i, False)
         if lines[i][2] != "0":
-            node_1 = node_dict[int(lines[i][2])]
+            node_1 = node_dict[lines[i][2]]
             kcl[node_1-1] = kcl_prepend(kcl[node_1-1], num_nodes, i, True)
     return [kcl,num_nodes,num_branches,node_dict]
 
@@ -149,8 +148,8 @@ def transient(netlist):
         trans_soln.append(soln)
         global send_data
         DUMMY_SPICE_ID = 0
-        voltage_list = ['V({})'.format(n) for n in get_nodes(netlist) if n != 0]
-        actual_vector_values = dict(zip(voltage_list, [soln[node_dict[n]] for n in get_nodes(netlist) if n != 0]))
+        voltage_list = ['V({})'.format(n) for n in get_nodes(netlist) if n != "0"]
+        actual_vector_values = dict(zip(voltage_list, [soln[node_dict[n]] for n in get_nodes(netlist) if n != "0"]))
         actual_vector_values['time'] = DT*i
         number_of_vectors = num_nodes
         timesteps.append(DT*i)
@@ -162,14 +161,14 @@ def next_v_txt(node_no, nodes_arr):
     if node_no == "0":
         return "0.00"
     else:
-        return "x[t+dt][{}]".format(node_dict[int(node_no)])
+        return "x[t+dt][{}]".format(node_dict[node_no])
 
 def curr_v_txt(node_no, nodes_arr):
     node_dict = dict(zip(nodes_arr[1:], range(len(nodes_arr[1:]))))
     if node_no == "0":
         return "0.00"
     else:
-        return "x[t][{}]".format(node_dict[int(node_no)])
+        return "x[t][{}]".format(node_dict[node_no])
 
 def next_i_txt(branch_no, num_nodes):
     return "x[t+dt][{}]".format(num_nodes - 1 + branch_no)
@@ -190,11 +189,13 @@ def netlist_translate(netlist_txt, nodes_arr):
             _line = line.split(" ")
             if line[0] == "R":
                 # Resistor
+                _line[3] = _line[3].replace("k","e3")
                 _line[3] = "({}-{})-(({})*({}))".format(next_v_txt(_line[1], nodes_arr),
                                                         next_v_txt(_line[2], nodes_arr),
                                                         next_i_txt(line_count, len(nodes_arr)), _line[3].replace("Ohm", ""))
             elif line[0] == "V":
                 # Voltage source
+                _line[3] = _line[3].replace("k","e3")
                 _line[3] = _line[3].replace('dc', 'dcv')
                 _line[3] = "({}-{})-({})".format(next_v_txt(_line[1], nodes_arr),
                                                  next_v_txt(_line[2], nodes_arr), _line[3].replace("V", ""))
@@ -204,6 +205,7 @@ def netlist_translate(netlist_txt, nodes_arr):
                 assert len(_line) != 6
             elif line[0] == "I":
                 # Current source
+                _line[3] = _line[3].replace("k","e3")
                 _line[3] = _line[3].replace('dc', 'dci')
                 _line[3] = "({})-({})".format(next_i_txt(line_count, len(nodes_arr)),
                                               _line[3].replace("A", ""))
@@ -213,6 +215,7 @@ def netlist_translate(netlist_txt, nodes_arr):
                 assert len(_line) != 6
             elif line[0] == "L":
                 # Inductor
+                _line[3] = _line[3].replace("k","e3")
                 _line[3] = "(({}-{})*dt)-(({})*(({})-({}))) (({})-({}))".format(next_v_txt(line[1], nodes_arr),
                                                                                 next_v_txt(line[2], nodes_arr),
                                                                                 _line[3].replace("H", ""),
@@ -222,6 +225,7 @@ def netlist_translate(netlist_txt, nodes_arr):
                                                                                 curr_v_txt(line[2], nodes_arr))
             elif line[0] == "C":
                 # Capacitor
+                _line[3] = _line[3].replace("k","e3")
                 _line[3] = "({}*dt)-(({})*(({}-{})-({}-{})))".format(next_i_txt(line_count, len(nodes_arr)),
                                                                      _line[3].replace("F", ""),
                                                                      next_v_txt(_line[1], nodes_arr),
@@ -267,27 +271,59 @@ def filter_dot_statements(contents_txt):
         del contents_txt_arr[line_idx]
     return "\n".join(contents_txt_arr)
 
-def spice_input(input_filename, output_filename):
+def get_sim_type(netlist_file_contents):
+    lines = netlist_file_contents.split("\n")
+    for l in lines:
+        if ".op" in l:
+            return "op_pt"
+        elif ".tran" in l:
+            return "transient"
+    return "op_pt"
+
+def _spice_input(input_filename, output_filename):
     with open(input_filename, "r") as netlist_file:
         netlist_file_contents = netlist_file.read()
+        print(netlist_file_contents)
         netlist_file_contents = filter_dot_statements(netlist_file_contents)
         nodes_arr = get_nodes(netlist_file_contents)
         _netlist = netlist_translate(netlist_file_contents, nodes_arr)
-        [soln,voltage_list,timesteps] = transient(_netlist)
-        assert len(soln) == len(timesteps)
+        sim_type = get_sim_type(netlist_file_contents)
+        if sim_type == "transient":
+            [soln,voltage_list,timesteps] = transient(_netlist)
+            assert len(soln) == len(timesteps)
+        elif sim_type == "op_pt":
+            [soln,num_nodes,num_branches,node_dict] = op_pt(_netlist)
+            voltage_list = ['V({})'.format(n) for n in get_nodes(_netlist) if n != "0"]
+        else:
+            assert False
         with open(output_filename, "w") as spice_raw_file:
             spice_raw_file_txt  = "Title: MyCircuit\n"
             spice_raw_file_txt += "Date: Thu Jun 11 23:17:40  2020\n"
-            spice_raw_file_txt += "Plotname: Transient Analysis\n"
+            if sim_type == "transient":
+                spice_raw_file_txt += "Plotname: Transient Analysis\n"
+            elif sim_type == "op_pt":
+                spice_raw_file_txt += "Plotname: Operating Point\n"
             spice_raw_file_txt += "Flags: real\n"
-            spice_raw_file_txt += "No. Variables: {}\n".format(len(voltage_list))
-            spice_raw_file_txt += "No. Points: {}\n".format(len(soln))
+            if sim_type == "transient":
+                spice_raw_file_txt += "No. Variables: {}\n".format(1 + len(voltage_list))
+                spice_raw_file_txt += "No. Points: {}\n".format(len(soln))
+            elif sim_type == "op_pt":
+                spice_raw_file_txt += "No. Variables: {}\n".format(len(voltage_list))
+                spice_raw_file_txt += "No. Points: {}\n".format(1)
             spice_raw_file_txt += "Variables:\n"
-            spice_raw_file_txt += "\t0\ttime\ttime\n"
-            spice_raw_file_txt += "\n".join(["\t{}\t{}\tvoltage".format(1+i,v) for i,v in enumerate(voltage_list)])
+            if sim_type == "transient":
+                spice_raw_file_txt += "\t0\ttime\ttime\n"
+                spice_raw_file_txt += "".join(["\t{}\t{}\tvoltage\n".format(1+i,v) for i,v in enumerate(voltage_list)])
+            elif sim_type == "op_pt":
+                spice_raw_file_txt += "".join(["\t{}\t{}\tvoltage\n".format(i,v) for i,v in enumerate(voltage_list)])
             spice_raw_file_txt += "Binary:\n"
             format_float = lambda x : hex(struct.unpack('<Q', struct.pack('<d', x))[0]).replace('0x', '')
-            for j in range(len(soln)):
-                s = soln[j]
-                spice_raw_file_txt += "".join([str(timesteps[j])] + [format_float(v) for i,v in enumerate(s) if i < len(voltage_list)]) + "\n"
+            if sim_type == "transient":
+                for j in range(len(soln)):
+                    s = soln[j]
+                    spice_raw_file_txt += "".join([str(timesteps[j])] + [format_float(v) for i,v in enumerate(s) if i < len(voltage_list)]) + "\n"
+            elif sim_type == "op_pt":
+                spice_raw_file_txt += "".join([format_float(v) for i,v in enumerate(soln) if i < len(voltage_list)]) + "\n"
+            else:
+                assert False
             spice_raw_file.write(spice_raw_file_txt)

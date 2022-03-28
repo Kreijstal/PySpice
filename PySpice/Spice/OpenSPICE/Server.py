@@ -30,7 +30,8 @@ import os
 import shutil
 import subprocess
 import tempfile
-import OpenSPICE
+# TODO: Change
+from .OpenSPICE import _spice_input
 
 from PySpice.Config import ConfigInstall
 from .RawFile import RawFile
@@ -128,7 +129,7 @@ class OpenSPICEServer:
 
         # self._parse_stdout(stdout)
 
-        OpenSPICE.spice_input(input_filename, output_filename, get_vsrc)
+        _spice_input(input_filename, output_filename)
 
         with open(output_filename, 'rb') as f:
             output = f.read()
