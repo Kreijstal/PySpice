@@ -295,13 +295,7 @@ class RawFileAbc:
         else:
             raise NotImplementedError
 
-        input_data = []
-        assert len(str(raw_data).split("\\n")) - 1 == self.number_of_points
-        for data in str(raw_data).split("\\n")[:-1]:
-            for c in range(number_of_columns):
-                input_data.append(raw_data.decode()[(16*c):(16*(c+1))])
-        print("input_data = {}".format(input_data))
-        input_data = np.array([struct.unpack('>d', bytes.fromhex(a))[0] for a in input_data])
+        input_data = np.fromstring(raw_data, count=number_of_columns*self.number_of_points, dtype='f8')
         input_data = input_data.reshape((self.number_of_points, number_of_columns))
         input_data = input_data.transpose()
         if self.flags == 'complex':

@@ -6,6 +6,7 @@ from PySpice.Spice.Parser import SpiceParser
 import struct
 from functools import reduce
 from operator import concat
+import array
 
 get_vsrc = lambda dc_vals, timestep, node_id, ngspice_id : None
 get_isrc = lambda dc_vals, timestep, node_id, ngspice_id : None
@@ -413,6 +414,11 @@ def get_sim_type(netlist_file_contents):
             return "transient"
     return "op_pt"
 
+def pack_arr(a):
+    _a = a[::-1] # reverse order
+    __a = array.array('d', _a).tobytes()[::-1] # generate bytes
+    return "".join([hex(d)[2:].zfill(2) for d in __a])
+
 def _spice_input(input_filename, output_filename):
     with open(input_filename, "r") as netlist_file:
         netlist_file_contents = netlist_file.read()
@@ -450,16 +456,14 @@ def _spice_input(input_filename, output_filename):
             elif sim_type == "op_pt":
                 spice_raw_file_txt += "".join(["\t{}\t{}\tvoltage\n".format(i,v) for i,v in enumerate(voltage_list)])
             spice_raw_file_txt += "Binary:\n"
-            format_padded_float = lambda x : struct.pack('>d', x).hex()
             if sim_type == "transient":
                 for j in range(len(soln)):
                     s = soln[j]
-                    raw_data_arr = [format_padded_float(timesteps[j])] + \
-                                   [format_padded_float(v) for i,v in enumerate(s) if i < len(voltage_list)]
-                    spice_raw_file_txt += "".join(raw_data_arr) + "\n"
-                assert len(spice_raw_file_txt.split("\n")) >= len(soln)
+                    numbers = [timesteps[j]] + [v for i,v in enumerate(s) if i < len(voltage_list)]
+                    raw_data_arr = pack_arr(numbers)
+                    spice_raw_file_txt += "".join(raw_data_arr)
             elif sim_type == "op_pt":
-                spice_raw_file_txt += "".join([format_padded_float(v) for i,v in enumerate(soln) if i < len(voltage_list)]) + "\n"
+                spice_raw_file_txt += "".join(pack_arr([v for i,v in enumerate(soln) if i < len(voltage_list)])) + "\n"
             else:
                 assert False
             spice_raw_file.write(spice_raw_file_txt)
