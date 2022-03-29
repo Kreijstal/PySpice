@@ -9,6 +9,7 @@ logger = Logging.setup_logging()
 
 from PySpice.Spice.Netlist import Circuit
 from PySpice.Unit import *
+import numpy
 
 ####################################################################################################
 
@@ -27,10 +28,13 @@ simulator = circuit.simulator(temperature=25, nominal_temperature=25)
 analysis = simulator.operating_point()
 for node in (analysis['in_node'], analysis.out): # .in is invalid !
     print('Node {}: {} V'.format(str(node), float(node)))
+data = numpy.array([float(analysis['in_node']), float(analysis.out)])
+numpy.save('./results/voltage-divider', data)
 #o#
 
 # Fixme: Xyce sensitivity analysis
-analysis = simulator.dc_sensitivity('v(out)')
-for element in analysis.elements.values():
-    print(element, float(element))
+# TODO Enable DC sensitivity tests
+### analysis = simulator.dc_sensitivity('v(out)')
+### for element in analysis.elements.values():
+###     print(element, float(element))
 #o#

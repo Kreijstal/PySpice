@@ -184,13 +184,21 @@ def filter_voltages(input_str, nodes_arr):
         input_str = input_str.replace("v({})".format(node), next_v_txt(str(node), nodes_arr))
     return input_str
 
-def paranth_split(arr):
-    par_split = [(i, k.split(")")) if ")" in k else (i, k) for i,k in enumerate(arr.split("("))]
-    par_split_dict = dict(par_split)
-    par_replace = [(_y[0], _y[1][0].replace(" ", ",")) for _y in par_split if type(_y[1]) == list]
-    par_replace_dict = dict(par_replace)
-    final_list = [['(' + par_replace_dict[i] + ')'] + v[1:] if type(v) == list else [v] for i,v in enumerate(par_split_dict.values())]
-    return "".join(reduce(concat, final_list))
+def paranth_split(x):
+    in_par = False
+    _x = ""
+    for _c in range(len(x)):
+        if x[_c] == "(":
+            in_par = True
+            _x += x[_c]
+        elif x[_c] == ")":
+            in_par = False
+            _x += x[_c]
+        elif in_par and x[_c] == " ":
+            _x += ","
+        else:
+            _x += x[_c]
+    return _x
 
 def filter_sin(txt):
     # txt is expected to be of the form SIN(X,X,X,X,X,X)
@@ -321,9 +329,7 @@ def netlist_translate(netlist_txt, nodes_arr):
                     if "PULSE" in _line[5]:
                         dc_offset = _line[4].replace("V","")
                         _line[3] = "({})+({})".format(filter_pulse(_line[5]), dc_offset)
-                    else:
-                        assert False
-                    _line = _line[:4]
+                        _line = _line[:4]
                 _line[3] = "({}-{})-({})".format(next_v_txt(_line[1], nodes_arr),
                                                  next_v_txt(_line[2], nodes_arr), _line[3])
                 if len(_line) == 6 and _line[5] == "external":
@@ -415,9 +421,7 @@ def get_sim_type(netlist_file_contents):
     return "op_pt"
 
 def pack_arr(a):
-    _a = a[::-1] # reverse order
-    __a = array.array('d', _a).tobytes()[::-1] # generate bytes
-    return "".join([hex(d)[2:].zfill(2) for d in __a])
+    return array.array('d', a).tobytes()
 
 def _spice_input(input_filename, output_filename):
     with open(input_filename, "r") as netlist_file:
@@ -456,14 +460,16 @@ def _spice_input(input_filename, output_filename):
             elif sim_type == "op_pt":
                 spice_raw_file_txt += "".join(["\t{}\t{}\tvoltage\n".format(i,v) for i,v in enumerate(voltage_list)])
             spice_raw_file_txt += "Binary:\n"
+            spice_raw_file.write(spice_raw_file_txt)
+        with open(output_filename,"ab") as spice_raw_file:
             if sim_type == "transient":
                 for j in range(len(soln)):
                     s = soln[j]
                     numbers = [timesteps[j]] + [v for i,v in enumerate(s) if i < len(voltage_list)]
                     raw_data_arr = pack_arr(numbers)
-                    spice_raw_file_txt += "".join(raw_data_arr)
+                    spice_raw_file.write(raw_data_arr)
             elif sim_type == "op_pt":
-                spice_raw_file_txt += "".join(pack_arr([v for i,v in enumerate(soln) if i < len(voltage_list)])) + "\n"
+                packed_arr = pack_arr([v for i,v in enumerate(soln) if i < len(voltage_list)])
+                spice_raw_file.write(packed_arr)
             else:
                 assert False
-            spice_raw_file.write(spice_raw_file_txt)
