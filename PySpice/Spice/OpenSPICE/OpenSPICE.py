@@ -7,9 +7,9 @@ import struct
 from functools import reduce
 from operator import concat
 
-get_vsrc = None
-get_isrc = None
-send_data = None
+get_vsrc = lambda dc_vals, timestep, node_id, ngspice_id : None
+get_isrc = lambda dc_vals, timestep, node_id, ngspice_id : None
+send_data = lambda actual_vector_values, number_of_vectors, ngspice_id : None
 
 END_T = 1000.00
 DT = 0.1
@@ -197,8 +197,6 @@ def filter_sin(txt):
     assert "SIN(" + interior + ")" == txt
     param_list = interior.split(",")
     param_names = ["(V0)", "(VA)", "(FREQ)", "(TD)", "(THETA)", "(PHASE)"]
-    print(param_list)
-    print(param_names)
     assert len(param_list) <= len(param_names)
     assert len(param_list) >= 2
     if len(param_list) < len(param_names):
@@ -210,7 +208,6 @@ def filter_sin(txt):
                                                     .replace("k","e3")\
                                                     .replace("u","e-6")\
                                                     .replace("m","e-3")
-        print("len(param_list) = {}".format(len(param_list)))
         if len(param_list) <= 5:
             sub_dict[param_names[5]] = str(0.0)
         if len(param_list) <= 4:
@@ -233,13 +230,68 @@ def filter_sin(txt):
     interior = "((({})*({}))+(({})*({})))".format(cond0,state0,cond1,state1)
     return "sin(" + interior + ")"
 
+def filter_pulse(txt):
+    # txt is expected to be of the form SIN(X,X,X,X,X,X)
+    interior = txt[txt.find("(")+1:][:-1]
+    assert "PULSE(" + interior + ")" == txt
+    param_list = interior.split(",")
+    param_names = ["(V1)", "(V2)", "(TD)", "(TR)", "(TF)", "(PW)", "(PER)", "(PHASE)"]
+    assert len(param_list) <= len(param_names)
+    assert len(param_list) >= 2
+    if len(param_list) < len(param_names):
+        sub_dict = {}
+        for i in range(len(param_list)):
+            sub_dict[param_names[i]] = param_list[i].replace("Hz","")\
+                                                    .replace("s","")\
+                                                    .replace("V","")\
+                                                    .replace("k","e3")\
+                                                    .replace("u","e-6")\
+                                                    .replace("m","e-3")
+        if len(param_list) <= 8:
+            sub_dict[param_names[7]] = str(0.0)
+        if len(param_list) <= 7:
+            sub_dict[param_names[6]] = str(END_T)
+        if len(param_list) <= 6:
+            sub_dict[param_names[5]] = str(END_T)
+        if len(param_list) <= 5:
+            sub_dict[param_names[4]] = str(DT)
+        if len(param_list) <= 4:
+            sub_dict[param_names[3]] = str(DT)
+        if len(param_list) <= 3:
+            sub_dict[param_names[2]] = str(0.0)
+    else:
+        sub_dict = dict(zip(param_names, param_list))
+    cond0 = "t<=((TD))"
+    cond1 = "((TD))<t<=(((TD))+((TR)))"
+    cond2 = "(((TD))+((TR)))<t<=(((TD))+((TR))+((PW)))"
+    cond3 = "(((TD))+((TR))+((PW)))<t<=(((TD))+((TR))+((PW))+((TF)))"
+    cond4 = "(((TD))+((TR))+((PW))+((TF)))<t"
+    state0 = "((V1))"
+    state1 = "(((((V2))-((V1)))*t)+((((TR))+((TD)))*((V1)))-(((TD))*((V2))))/((TR))" if sub_dict["(TR)"] != str(0) else str(0)
+    state2 = "((V2))"
+    state3 = "(((((V1))-((V2)))*t)+(((V2))*((TF)))-((((V1))-((V2)))*(((TD))+((TR))+((PW)))))/((TF))" if sub_dict["(TF)"] != str(0) else str(0)
+    state4 = "((V1))"
+    for l in param_names:
+        cond0 = cond0.replace(l, sub_dict[l])
+        cond1 = cond1.replace(l, sub_dict[l])
+        cond2 = cond2.replace(l, sub_dict[l])
+        cond3 = cond3.replace(l, sub_dict[l])
+        cond4 = cond4.replace(l, sub_dict[l])
+        state0 = state0.replace(l, sub_dict[l])
+        state1 = state1.replace(l, sub_dict[l])
+        state2 = state2.replace(l, sub_dict[l])
+        state3 = state3.replace(l, sub_dict[l])
+        state4 = state4.replace(l, sub_dict[l])
+    interior = "(({})*({}))+(({})*({}))+(({})*({}))+(({})*({}))+(({})*({}))".format(
+            cond0,state0,cond1,state1,cond2,state2,cond3,state3,cond4,state4)
+    return "(" + interior + ")"
+
 def netlist_translate(netlist_txt, nodes_arr):
     new_netlist_txt = ""
     line_count = 0
     for line in netlist_txt.split("\n"):
         if line != "":
             _line = line.split(" ")
-            print(_line)
             if line[0] == "R":
                 # Resistor
                 _line[3] = _line[3].replace("Ohm", "")
@@ -257,9 +309,19 @@ def netlist_translate(netlist_txt, nodes_arr):
                 _line[3] = _line[3].replace("m","e-3")
                 _line[3] = _line[3].replace('dc', 'dcv')
                 if len(_line) == 8:
-                    dc_offset = _line[4].replace("V","")
-                    ac_amplitude = _line[6].replace("V","")
-                    _line[3] = "({})*({})+({})".format(ac_amplitude, filter_sin(_line[7]), dc_offset)
+                    if "SIN" in _line[7]:
+                        dc_offset = _line[4].replace("V","")
+                        ac_amplitude = _line[6].replace("V","")
+                        _line[3] = "({})*({})+({})".format(ac_amplitude, filter_sin(_line[7]), dc_offset)
+                    else:
+                        assert False
+                    _line = _line[:4]
+                elif len(_line) == 6:
+                    if "PULSE" in _line[5]:
+                        dc_offset = _line[4].replace("V","")
+                        _line[3] = "({})+({})".format(filter_pulse(_line[5]), dc_offset)
+                    else:
+                        assert False
                     _line = _line[:4]
                 _line[3] = "({}-{})-({})".format(next_v_txt(_line[1], nodes_arr),
                                                  next_v_txt(_line[2], nodes_arr), _line[3])
@@ -347,21 +409,18 @@ def filter_dot_statements(contents_txt):
 def get_sim_type(netlist_file_contents):
     lines = netlist_file_contents.split("\n")
     for l in lines:
-        if ".op" in l:
-            return "op_pt"
-        elif ".tran" in l:
+        if ".tran" in l:
             return "transient"
     return "op_pt"
 
 def _spice_input(input_filename, output_filename):
     with open(input_filename, "r") as netlist_file:
         netlist_file_contents = netlist_file.read()
+        sim_type = get_sim_type(netlist_file_contents)
         netlist_file_contents = filter_dot_statements(netlist_file_contents)
         netlist_file_contents = "\n".join([paranth_split(n) for n in netlist_file_contents.split("\n") if n != ''])
-        print(netlist_file_contents)
         nodes_arr = get_nodes(netlist_file_contents)
         _netlist = netlist_translate(netlist_file_contents, nodes_arr)
-        sim_type = get_sim_type(netlist_file_contents)
         if sim_type == "transient":
             [soln,voltage_list,timesteps] = transient(_netlist)
             assert len(soln) == len(timesteps)
@@ -391,13 +450,16 @@ def _spice_input(input_filename, output_filename):
             elif sim_type == "op_pt":
                 spice_raw_file_txt += "".join(["\t{}\t{}\tvoltage\n".format(i,v) for i,v in enumerate(voltage_list)])
             spice_raw_file_txt += "Binary:\n"
-            format_float = lambda x : hex(struct.unpack('<Q', struct.pack('<d', x))[0]).replace('0x', '')
+            format_padded_float = lambda x : struct.pack('>d', x).hex()
             if sim_type == "transient":
                 for j in range(len(soln)):
                     s = soln[j]
-                    spice_raw_file_txt += "".join([str(timesteps[j])] + [format_float(v) for i,v in enumerate(s) if i < len(voltage_list)]) + "\n"
+                    raw_data_arr = [format_padded_float(timesteps[j])] + \
+                                   [format_padded_float(v) for i,v in enumerate(s) if i < len(voltage_list)]
+                    spice_raw_file_txt += "".join(raw_data_arr) + "\n"
+                assert len(spice_raw_file_txt.split("\n")) >= len(soln)
             elif sim_type == "op_pt":
-                spice_raw_file_txt += "".join([format_float(v) for i,v in enumerate(soln) if i < len(voltage_list)]) + "\n"
+                spice_raw_file_txt += "".join([format_padded_float(v) for i,v in enumerate(soln) if i < len(voltage_list)]) + "\n"
             else:
                 assert False
             spice_raw_file.write(spice_raw_file_txt)
