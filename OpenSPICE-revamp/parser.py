@@ -18,6 +18,9 @@ class Inductor:
 class VSource:
     pass
 
+class ISource:
+    pass
+
 #######################################################################################
 
 # Top-Level Netlist Rules #
@@ -26,7 +29,7 @@ def netlist():
     return ZeroOrMore(branch, OneOrMore(newline)), Optional(branch)
 
 def branch():
-    return [resistor, capacitor, inductor, vsource]
+    return [resistor, capacitor, inductor, vsource, isource]
 
 #######################################################################################
 
@@ -43,6 +46,9 @@ def resistor():
 
 def vsource():
     return vcomponent, node, node, passiveValue
+
+def isource():
+    return icomponent, node, node, passiveValue
 
 #######################################################################################
 
@@ -78,6 +84,9 @@ def lcomponent():
 
 def vcomponent():
     return RegExMatch(r'V\d+')
+
+def icomponent():
+    return RegExMatch(r'I\d+')
 
 #######################################################################################
 
@@ -122,6 +131,12 @@ def gen_dict_from_branch(nonterm):
                 "node_plus"  : nonterm[0][1].value,
                 "node_minus" : nonterm[0][2].value,
                 "value"      : nonterm[0][3].value}
+    elif nonterm[0].rule_name == "isource":
+        assert len(nonterm[0]) == 4
+        return {"component"  : ISource,
+                "node_plus"  : nonterm[0][1].value,
+                "node_minus" : nonterm[0][2].value,
+                "value"      : nonterm[0][3].value}
     else:
         assert False
 
@@ -141,5 +156,5 @@ def parse(txt):
 
 if __name__ == "__main__":
     parser = ParserPython(netlist, ws='\t\r ')
-    with open("vsource.cir", "r") as f:
+    with open("isource.cir", "r") as f:
         print(parse(f.read()))
