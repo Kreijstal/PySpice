@@ -4,6 +4,8 @@ from arpeggio import ZeroOrMore, EOF, Optional, OneOrMore, RegExMatch, ParserPyt
 
 #######################################################################################
 
+# Component Classes #
+
 class Resistor:
     pass
 
@@ -12,11 +14,17 @@ class Capacitor:
 
 #######################################################################################
 
+# Top-Level Netlist Rules #
+
 def netlist():
     return ZeroOrMore(branch, OneOrMore(newline)), Optional(branch)
 
 def branch():
     return [resistor, capacitor]
+
+#######################################################################################
+
+# Component Rules #
 
 def capacitor():
     return ccomponent, node, node, passiveValue, Optional(ic)
@@ -24,14 +32,9 @@ def capacitor():
 def resistor():
     return rcomponent, node, node, passiveValue
 
-def ic():
-    return RegExMatch(r'ic='), stateVarValue
+#######################################################################################
 
-def ccomponent():
-    return RegExMatch(r'C\d+')
-
-def rcomponent():
-    return RegExMatch(r'R\d+')
+# Generic Branch Rules #
 
 def node():
     return RegExMatch(r'\d+')
@@ -45,7 +48,22 @@ def stateVarValue():
 def newline():
     return RegExMatch(r'\n')
 
+def ic():
+    return RegExMatch(r'ic='), stateVarValue
+
 #######################################################################################
+
+# Component Identifier Rules #
+
+def ccomponent():
+    return RegExMatch(r'C\d+')
+
+def rcomponent():
+    return RegExMatch(r'R\d+')
+
+#######################################################################################
+
+# Parsing Functions #
 
 def filter_terms(ptree):
     return [_ for _ in ptree if type(_) != Terminal]
@@ -83,9 +101,12 @@ def gen_dict(nonterm):
 def gen_data_dicts(ptree):
     return [gen_dict(_) for _ in ptree]
 
+def parse(txt):
+    return gen_data_dicts(filter_terms(parser.parse(txt)))
+
+#######################################################################################
+
 if __name__ == "__main__":
     parser = ParserPython(netlist, ws='\t\r ')
-    with open("rc_netlist_w_ic.cir") as f:
-        ptree = parser.parse(f.read()) 
-        ptree = filter_terms(ptree)
-        print(gen_data_dicts(ptree))
+    with open("rc_netlist_w_ic.cir", "r") as f:
+        print(parse(f.read()))
