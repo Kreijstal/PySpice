@@ -64,6 +64,9 @@ def tmax():
 def uic():
     return RegExMatch("uic")
 
+def end():
+    return RegExMatch(".end")
+
 def _float():
     return RegExMatch(r'[+-]?([0-9]+([.][0-9]*)?|[.][0-9]+)')
 
@@ -193,6 +196,37 @@ def nonterm_is_branch(nonterm):
     assert type(nonterm) == NonTerminal
     return "branch" in nonterm.name
 
+def nonterm_is_ctrl(nonterm):
+    assert type(nonterm) == NonTerminal
+    return "ctrl" in nonterm.name
+
+def gen_dict_from_ctrl(nonterm):
+    assert nonterm_is_ctrl(nonterm)
+    rule_names = [n.rule_name for n in nonterm]
+    if "op_pt" in rule_names:
+        return {"test_type" : "op_pt"}
+    elif "tran" in rule_names:
+        tran_node = nonterm[rule_names.index("tran")]
+        tran_node_rule_names = [n.rule_name for n in tran_node]
+        tran_d = {"test_type" : "tran",
+                  "tstep"     : tran_node[1].value,
+                  "tstop"     : tran_node[2].value}
+        if "tstart" in tran_node_rule_names:
+            tran_d["tstart"] = tran_node[3].value
+            if "tmax" in tran_node_rule_names:
+                tran_d["tmax"] = tran_node[4].value
+                if "uic" in tran_node_rule_names:
+                    tran_d["uic"] = tran_node[5].value
+            else:
+                if "uic" in tran_node_rule_names:
+                    tran_d["uic"] = tran_node[4].value
+        else:
+            if "uic" in tran_node_rule_names:
+                tran_d["uic"] = tran_node[3].value
+        return tran_d
+    else:
+        assert False
+
 def gen_dict_from_branch(nonterm):
     assert nonterm_is_branch(nonterm)
     if   nonterm[0].rule_name == "resistor":
@@ -295,6 +329,8 @@ def linear_dep_src(s_plus, s_minus, gain, is_voltage_controlled=True):
 def gen_dict(nonterm):
     if nonterm_is_branch(nonterm):
         return gen_dict_from_branch(nonterm)
+    elif nonterm_is_ctrl(nonterm):
+        return gen_dict_from_ctrl(nonterm)
     else:
         assert False
 
