@@ -38,3 +38,4 @@ from existing OpenSPICE.
 
 Down the road:
 - Add multiplier m for current sources
+- Finish behavioral sources
