@@ -12,6 +12,9 @@ class Resistor:
 class Capacitor:
     pass
 
+class Inductor:
+    pass
+
 #######################################################################################
 
 # Top-Level Netlist Rules #
@@ -25,6 +28,9 @@ def branch():
 #######################################################################################
 
 # Component Rules #
+
+def inductor():
+    return lcomponent, node, node, passiveValue, Optional(ic)
 
 def capacitor():
     return ccomponent, node, node, passiveValue, Optional(ic)
@@ -61,6 +67,9 @@ def ccomponent():
 def rcomponent():
     return RegExMatch(r'R\d+')
 
+def lcomponent():
+    return RegExMatch(r'L\d+')
+
 #######################################################################################
 
 # Parsing Functions #
@@ -89,6 +98,15 @@ def gen_dict_from_branch(nonterm):
         if len(nonterm[0]) == 5:
             _cap["ic"] = nonterm[0][4][1].value
         return _cap
+    elif nonterm[0].rule_name == "inductor":
+        assert len(nonterm[0]) == 4 or len(nonterm[0]) == 5
+        _ind = {"component"  : Inductor,
+                "node_plus"  : nonterm[0][1].value,
+                "node_minus" : nonterm[0][2].value,
+                "value"      : nonterm[0][3].value}
+        if len(nonterm[0]) == 5:
+            _cap["ic"] = nonterm[0][4][1].value
+        return _ind
     else:
         assert False
 
