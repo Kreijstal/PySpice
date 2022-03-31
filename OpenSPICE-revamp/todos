@@ -1,0 +1,37 @@
+1) Voltage sources
+2) Current sources
+3) External source modifications for voltage
+4) External source modifications for current
+5) Linear dependent sources
+    (a) VCVS
+    (b) CCVS
+    (c) CCCS
+    (d) VCCS
+6) Behavioral sources
+7) .control statements for...
+    (a) DC op point
+    (b) transient sim
+----- parser.py done ------
+0) Break off cap, ind, res, etc. classes into a separate file
+imported by parser.py and eqnstr.py
+1) Strategy pattern skeleton
+2) Equation formatting for transient and op pt
+3) Document interface at top of eqnstr.py
+4) Document that parser.py's interface is simply ngspice netlist
+5) Write OpenSPICE.py as top-level file to call both.
+----- eqnstr.py done ------
+1) ****** FIGURE OUT HOW TO DEAL WITH GET_VSRC, SEND_DATA, etc. ******
+2) Implement strategy pattern skeleton.
+3) scipy.optimize.root one such strategy. Add comment about being able to
+feed into other simulators as a separate strategy. May involve stealing code
+from existing OpenSPICE.
+4) Document interface at top of solver.py
+5) Add to OpenSPICE.py
+----- solver.py done -----
+1) Take binary generation function from existing OpenSPICE code
+2) Document interface and output at top of genout.py
+3) Add to OpenSPICE.py
+----- genout.py done -----
+1) Organize test suite in directory with a loop in OpenSPICE main function
+2) Plug in to PySpice
+3) Run examples and debug
