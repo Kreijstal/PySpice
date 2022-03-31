@@ -29,7 +29,7 @@ def netlist():
     return ZeroOrMore(branch, OneOrMore(newline)), Optional(branch)
 
 def branch():
-    return [resistor, capacitor, inductor, vsource, isource]
+    return [resistor, capacitor, inductor, vsource, isource, extvsource, extisource]
 
 #######################################################################################
 
@@ -50,6 +50,12 @@ def vsource():
 def isource():
     return icomponent, node, node, passiveValue
 
+def extvsource():
+    return vcomponent, node, node, dc, zero, external
+
+def extisource():
+    return icomponent, node, node, dc, zero, external
+
 #######################################################################################
 
 # Generic Branch Rules #
@@ -68,6 +74,15 @@ def newline():
 
 def ic():
     return RegExMatch(r'ic='), stateVarValue
+
+def dc():
+    return RegExMatch(r'dc')
+
+def zero():
+    return RegExMatch(r'0')
+
+def external():
+    return RegExMatch(r'external')
 
 #######################################################################################
 
@@ -137,6 +152,18 @@ def gen_dict_from_branch(nonterm):
                 "node_plus"  : nonterm[0][1].value,
                 "node_minus" : nonterm[0][2].value,
                 "value"      : nonterm[0][3].value}
+    elif nonterm[0].rule_name == "extvsource":
+        assert len(nonterm[0]) == 6
+        return {"component"  : VSource,
+                "node_plus"  : nonterm[0][1].value,
+                "node_minus" : nonterm[0][2].value,
+                "value"      : "get_vsrc()"}
+    elif nonterm[0].rule_name == "extisource":
+        assert len(nonterm[0]) == 6
+        return {"component"  : ISource,
+                "node_plus"  : nonterm[0][1].value,
+                "node_minus" : nonterm[0][2].value,
+                "value"      : "get_isrc()"}
     else:
         assert False
 
@@ -156,5 +183,5 @@ def parse(txt):
 
 if __name__ == "__main__":
     parser = ParserPython(netlist, ws='\t\r ')
-    with open("isource.cir", "r") as f:
+    with open("ext_sources.cir", "r") as f:
         print(parse(f.read()))

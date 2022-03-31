@@ -1,7 +1,7 @@
 1) Voltage sources (X)
 2) Current sources (X)
-3) External source modifications for voltage
-4) External source modifications for current
+3) External source modifications for voltage (X)
+4) External source modifications for current (X)
 5) Linear dependent sources
     (a) VCVS
     (b) CCVS
