@@ -175,14 +175,22 @@ def gen_dict_from_branch(nonterm):
         return {"component"  : ISource,
                 "node_plus"  : nonterm[0][1].value,
                 "node_minus" : nonterm[0][2].value,
-                "value"      : "(({})*(({})-({})))".format(nonterm[0][5].value,
-                                                           v_format(nonterm[0][3]),
-                                                           v_format(nonterm[0][4]))}
+                "value"      : linear_dep_src(nonterm[0][3].value,
+                                              nonterm[0][4].value,
+                                              nonterm[0][5].value,
+                                              is_voltage_controlled=True)}
     else:
         assert False
 
 def v_format(s):
     return "x['v({})']".format(s)
+
+def i_format(s):
+    return "x['i({})']".format(s)
+
+def linear_dep_src(s_plus, s_minus, gain, is_voltage_controlled=True):
+    return "(({})*(({})-({})))".format(gain, v_format(s_plus)  if is_voltage_controlled else i_format(s_plus),
+                                             v_format(s_minus) if is_voltage_controlled else i_format(s_minus))
 
 def gen_dict(nonterm):
     if nonterm_is_branch(nonterm):
