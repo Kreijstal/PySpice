@@ -15,6 +15,9 @@ class Capacitor:
 class Inductor:
     pass
 
+class VSource:
+    pass
+
 #######################################################################################
 
 # Top-Level Netlist Rules #
@@ -23,7 +26,7 @@ def netlist():
     return ZeroOrMore(branch, OneOrMore(newline)), Optional(branch)
 
 def branch():
-    return [resistor, capacitor, inductor]
+    return [resistor, capacitor, inductor, vsource]
 
 #######################################################################################
 
@@ -37,6 +40,9 @@ def capacitor():
 
 def resistor():
     return rcomponent, node, node, passiveValue
+
+def vsource():
+    return vcomponent, node, node, passiveValue
 
 #######################################################################################
 
@@ -69,6 +75,9 @@ def rcomponent():
 
 def lcomponent():
     return RegExMatch(r'L\d+')
+
+def vcomponent():
+    return RegExMatch(r'V\d+')
 
 #######################################################################################
 
@@ -107,6 +116,12 @@ def gen_dict_from_branch(nonterm):
         if len(nonterm[0]) == 5:
             _ind["ic"] = nonterm[0][4][1].value
         return _ind
+    elif nonterm[0].rule_name == "vsource":
+        assert len(nonterm[0]) == 4
+        return {"component"  : VSource,
+                "node_plus"  : nonterm[0][1].value,
+                "node_minus" : nonterm[0][2].value,
+                "value"      : nonterm[0][3].value}
     else:
         assert False
 
@@ -126,5 +141,5 @@ def parse(txt):
 
 if __name__ == "__main__":
     parser = ParserPython(netlist, ws='\t\r ')
-    with open("rlc_netlist_w_ic.cir", "r") as f:
+    with open("vsource.cir", "r") as f:
         print(parse(f.read()))
