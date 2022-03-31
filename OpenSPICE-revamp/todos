@@ -3,7 +3,7 @@
 3) External source modifications for voltage (X)
 4) External source modifications for current (X)
 5) Linear dependent sources
-    (a) VCVS
+    (a) VCVS (X)
     (b) CCVS
     (c) CCCS
     (d) VCCS
@@ -35,3 +35,6 @@ from existing OpenSPICE.
 1) Organize test suite in directory with a loop in OpenSPICE main function
 2) Plug in to PySpice
 3) Run examples and debug
+
+Down the road:
+- Add multiplier m for current sources

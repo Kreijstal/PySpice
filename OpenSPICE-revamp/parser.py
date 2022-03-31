@@ -29,7 +29,7 @@ def netlist():
     return ZeroOrMore(branch, OneOrMore(newline)), Optional(branch)
 
 def branch():
-    return [resistor, capacitor, inductor, vsource, isource, extvsource, extisource]
+    return [resistor, capacitor, inductor, vsource, isource, extvsource, extisource, vccssource]
 
 #######################################################################################
 
@@ -55,6 +55,9 @@ def extvsource():
 
 def extisource():
     return icomponent, node, node, dc, zero, external
+
+def vccssource():
+    return vccscomponent, node, node, node, node, passiveValue
 
 #######################################################################################
 
@@ -102,6 +105,9 @@ def vcomponent():
 
 def icomponent():
     return RegExMatch(r'I\d+')
+
+def vccscomponent():
+    return RegExMatch(r'G\d+')
 
 #######################################################################################
 
@@ -164,8 +170,19 @@ def gen_dict_from_branch(nonterm):
                 "node_plus"  : nonterm[0][1].value,
                 "node_minus" : nonterm[0][2].value,
                 "value"      : "get_isrc()"}
+    elif nonterm[0].rule_name == "vccssource":
+        assert len(nonterm[0]) == 6
+        return {"component"  : ISource,
+                "node_plus"  : nonterm[0][1].value,
+                "node_minus" : nonterm[0][2].value,
+                "value"      : "(({})*(({})-({})))".format(nonterm[0][5].value,
+                                                           v_format(nonterm[0][3]),
+                                                           v_format(nonterm[0][4]))}
     else:
         assert False
+
+def v_format(s):
+    return "x['v({})']".format(s)
 
 def gen_dict(nonterm):
     if nonterm_is_branch(nonterm):
@@ -183,5 +200,5 @@ def parse(txt):
 
 if __name__ == "__main__":
     parser = ParserPython(netlist, ws='\t\r ')
-    with open("ext_sources.cir", "r") as f:
+    with open("vccs.cir", "r") as f:
         print(parse(f.read()))
