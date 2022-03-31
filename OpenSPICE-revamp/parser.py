@@ -346,5 +346,5 @@ def parse(txt):
 
 if __name__ == "__main__":
     parser = ParserPython(netlist, ws='\t\r ')
-    with open("op_pt.cir", "r") as f:
+    with open("tran.cir", "r") as f:
         print(parse(f.read()))
