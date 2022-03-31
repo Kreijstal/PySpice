@@ -2,11 +2,11 @@
 2) Current sources (X)
 3) External source modifications for voltage (X)
 4) External source modifications for current (X)
-5) Linear dependent sources
+5) Linear dependent sources (X)
     (a) VCVS (X)
-    (b) CCVS
-    (c) CCCS
-    (d) VCCS
+    (b) CCVS (X)
+    (c) CCCS (X)
+    (d) VCCS (X)
 6) Behavioral sources
 7) .control statements for...
     (a) DC op point
