@@ -335,7 +335,9 @@ def gen_dict(nonterm):
         assert False
 
 def gen_data_dicts(ptree):
-    return [gen_dict(_) for _ in ptree]
+    branches = [gen_dict_from_branch(_) for _ in ptree if nonterm_is_branch(_)]
+    ctrl     = [gen_dict_from_ctrl  (_) for _ in ptree if nonterm_is_ctrl  (_)]
+    return {"branches" : branches, "ctrl" : ctrl}
 
 def parse(txt):
     return gen_data_dicts(filter_terms(parser.parse(txt)))
@@ -344,5 +346,5 @@ def parse(txt):
 
 if __name__ == "__main__":
     parser = ParserPython(netlist, ws='\t\r ')
-    with open("dep_sources.cir", "r") as f:
+    with open("op_pt.cir", "r") as f:
         print(parse(f.read()))
