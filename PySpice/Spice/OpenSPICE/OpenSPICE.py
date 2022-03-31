@@ -12,9 +12,6 @@ get_vsrc = lambda dc_vals, timestep, node_id, ngspice_id : None
 get_isrc = lambda dc_vals, timestep, node_id, ngspice_id : None
 send_data = lambda actual_vector_values, number_of_vectors, ngspice_id : None
 
-END_T = 1000.00
-DT = 0.1
-
 # TODO x -> dictionary mapping timestep to vector of currents and voltages
 # TODO initial conditions
 
@@ -33,8 +30,8 @@ def set_send_data(_send_data):
     send_data = _send_data
 
 # Take limit of expression t -> inf
-def inflim(expr, seed, dt, mid_trans, timestep):
-    if not mid_trans:
+def inflim(expr, seed, dt, mid_trans, timestep, start_time):
+    if timestep == start_time:
         expr = expr.replace('x[t+dt]', 'x').replace('x[t]', 'x')
     else:
         for s in range(len(seed)):
@@ -44,11 +41,11 @@ def inflim(expr, seed, dt, mid_trans, timestep):
     return expr
 
 # process netlist expressions with function f
-def process_netlist_expr(lines, f, dt, seed=[], mid_trans=False, timestep=0.0):
+def process_netlist_expr(lines, f, dt, seed=[], mid_trans=False, timestep=0.0, start_time=0.0):
     for i in range(len(lines)):
-        lines[i][3] = f(lines[i][3], seed, dt, mid_trans, timestep)
+        lines[i][3] = f(lines[i][3], seed, dt, mid_trans, timestep, start_time)
         if len(lines[i]) == 5 and not mid_trans:
-            lines[i][4] = f(lines[i][4], seed, dt, mid_trans, timestep)
+            lines[i][4] = f(lines[i][4], seed, dt, mid_trans, timestep, start_time)
     return lines
 
 def get_nodes(lines):
@@ -120,9 +117,9 @@ def isrc_sub(_eqn, timestep=0.00):
 # Op point
 # 1) Substitute constant dt and t -> inf.
 # 2) Use Powell's to solve at a single timestep
-def op_pt(netlist, mid_trans=False, seed=[], dt=1.0, timestep=0.0):
+def op_pt(netlist, mid_trans=False, seed=[], dt=1.0, timestep=0.0, start_time=0.0):
     lines = [n.split(" ") for n in netlist.split("\n") if n != ""]
-    lines = process_netlist_expr(lines, inflim, dt, seed, mid_trans, timestep)
+    lines = process_netlist_expr(lines, inflim, dt, seed, mid_trans, timestep, start_time)
     # Note: Replace len(l) - 1 with 3 for transient nextstep function
     if mid_trans:
         iv_relations = [l[3] for l in lines]
@@ -139,23 +136,24 @@ def op_pt(netlist, mid_trans=False, seed=[], dt=1.0, timestep=0.0):
 # 1) Create initial condition equations and calculate
 # 2) Set x[0] to initial condition
 # 3) Loop. Update t on each timestep.
-def transient(netlist):
+def transient(netlist, dt, end_time, start_time, uic):
     trans_soln = []
     voltage_list = []
     timesteps = []
-    for i in range(int(END_T / DT)):
+    for i in range(round(end_time / dt)):
+        curr_timestep = (dt*i) + start_time
         if i == 0:
-            [soln,num_nodes,num_branches,node_dict] = op_pt(netlist)
+            [soln,num_nodes,num_branches,node_dict] = op_pt(netlist, mid_trans=(not uic), dt=dt, timestep=start_time, start_time=start_time)
         else:
-            [soln,num_nodes,num_branches,node_dict] = op_pt(netlist, mid_trans=True, seed=trans_soln[len(trans_soln)-1], dt=DT, timestep=DT*i)
+            [soln,num_nodes,num_branches,node_dict] = op_pt(netlist, mid_trans=True, seed=trans_soln[len(trans_soln)-1], dt=dt, timestep=curr_timestep, start_time=start_time)
         trans_soln.append(soln)
         global send_data
         DUMMY_SPICE_ID = 0
         voltage_list = ['V({})'.format(n) for n in get_nodes(netlist) if n != "0"]
         actual_vector_values = dict(zip(voltage_list, [soln[node_dict[n]] for n in get_nodes(netlist) if n != "0"]))
-        actual_vector_values['time'] = DT*i
+        actual_vector_values['time'] = curr_timestep
         number_of_vectors = num_nodes
-        timesteps.append(DT*i)
+        timesteps.append(curr_timestep)
         send_data(actual_vector_values, number_of_vectors, DUMMY_SPICE_ID)
     return [trans_soln,voltage_list,timesteps]
 
@@ -239,7 +237,7 @@ def filter_sin(txt):
     interior = "((({})*({}))+(({})*({})))".format(cond0,state0,cond1,state1)
     return "sin(" + interior + ")"
 
-def filter_pulse(txt):
+def filter_pulse(txt, end_time, dt):
     # txt is expected to be of the form SIN(X,X,X,X,X,X)
     interior = txt[txt.find("(")+1:][:-1]
     assert "PULSE(" + interior + ")" == txt
@@ -259,13 +257,13 @@ def filter_pulse(txt):
         if len(param_list) <= 8:
             sub_dict[param_names[7]] = str(0.0)
         if len(param_list) <= 7:
-            sub_dict[param_names[6]] = str(END_T)
+            sub_dict[param_names[6]] = str(end_time)
         if len(param_list) <= 6:
-            sub_dict[param_names[5]] = str(END_T)
+            sub_dict[param_names[5]] = str(end_time)
         if len(param_list) <= 5:
-            sub_dict[param_names[4]] = str(DT)
+            sub_dict[param_names[4]] = str(dt)
         if len(param_list) <= 4:
-            sub_dict[param_names[3]] = str(DT)
+            sub_dict[param_names[3]] = str(dt)
         if len(param_list) <= 3:
             sub_dict[param_names[2]] = str(0.0)
     else:
@@ -295,7 +293,7 @@ def filter_pulse(txt):
             cond0,state0,cond1,state1,cond2,state2,cond3,state3,cond4,state4)
     return "(" + interior + ")"
 
-def netlist_translate(netlist_txt, nodes_arr):
+def netlist_translate(netlist_txt, nodes_arr, end_time, dt):
     new_netlist_txt = ""
     line_count = 0
     for line in netlist_txt.split("\n"):
@@ -328,7 +326,7 @@ def netlist_translate(netlist_txt, nodes_arr):
                 elif len(_line) == 6:
                     if "PULSE" in _line[5]:
                         dc_offset = _line[4].replace("V","")
-                        _line[3] = "({})+({})".format(filter_pulse(_line[5]), dc_offset)
+                        _line[3] = "({})+({})".format(filter_pulse(_line[5], end_time, dt), dc_offset)
                         _line = _line[:4]
                 _line[3] = "({}-{})-({})".format(next_v_txt(_line[1], nodes_arr),
                                                  next_v_txt(_line[2], nodes_arr), _line[3])
@@ -420,6 +418,34 @@ def get_sim_type(netlist_file_contents):
             return "transient"
     return "op_pt"
 
+def get_tran_params(netlist_file_contents):
+    lines = netlist_file_contents.split("\n")
+    for l in lines:
+        if ".tran" in l:
+            _l = l.split(" ")
+            assert _l[0] == ".tran"
+            assert len(_l) >= 3
+            assert len(_l) <= 6
+            dt = float(_l[1].replace("u", "e-6").replace("s", ""))
+            end_time = float(_l[2].replace("m", "e-3").replace("s", ""))
+            if len(_l) > 3 and _l[3] != "uic":
+                start_time = float(_l[3].replace("s", ""))
+            else:
+                start_time = 0.00
+            # TODO: tmax is never used since variable time-stepping not
+            # currently supported.
+            if len(_l) > 4 and _l[4] != "uic":
+                tmax = float(_l[4].replace("s", ""))
+            else:
+                tmax = 0.00
+            if _l[len(_l)-1] == "uic":
+                uic = True
+            else:
+                uic = False
+            return [dt, end_time, start_time, tmax, uic]
+    assert False
+
+
 def pack_arr(a):
     return array.array('d', a).tobytes()
 
@@ -427,12 +453,15 @@ def _spice_input(input_filename, output_filename):
     with open(input_filename, "r") as netlist_file:
         netlist_file_contents = netlist_file.read()
         sim_type = get_sim_type(netlist_file_contents)
+        if sim_type == "transient":
+            [dt, end_time, start_time, tmax, uic] = get_tran_params(netlist_file_contents)
         netlist_file_contents = filter_dot_statements(netlist_file_contents)
         netlist_file_contents = "\n".join([paranth_split(n) for n in netlist_file_contents.split("\n") if n != ''])
         nodes_arr = get_nodes(netlist_file_contents)
-        _netlist = netlist_translate(netlist_file_contents, nodes_arr)
+        _netlist = netlist_translate(netlist_file_contents, nodes_arr, end_time, dt)
         if sim_type == "transient":
-            [soln,voltage_list,timesteps] = transient(_netlist)
+            assert start_time < end_time
+            [soln,voltage_list,timesteps] = transient(_netlist, dt, end_time, start_time, uic)
             assert len(soln) == len(timesteps)
         elif sim_type == "op_pt":
             [soln,num_nodes,num_branches,node_dict] = op_pt(_netlist)

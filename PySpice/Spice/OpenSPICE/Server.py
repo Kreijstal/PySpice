@@ -114,26 +114,10 @@ class OpenSPICEServer:
         with open(input_filename, 'w') as f:
             f.write(str(spice_input))
 
-        # command = "python3 -m OpenSPICE " + input_filename + " -r " + output_filename
-        # print(command)
-        # self._logger.info('Run {}'.format(' '.join(command)))
-        # process = subprocess.Popen(
-        #     command,
-        #     stdin=subprocess.PIPE,
-        #     stdout=subprocess.PIPE,
-        #     stderr=subprocess.PIPE,
-        #     shell=True,
-        # )
-        # stdout, stderr = process.communicate()
-        # print(stdout)
-
-        # self._parse_stdout(stdout)
-
         _spice_input(input_filename, output_filename)
 
         with open(output_filename, 'rb') as f:
             output = f.read()
-        # self._logger.debug(output)
 
         raw_file = RawFile(output)
         shutil.rmtree(tmp_dir)
