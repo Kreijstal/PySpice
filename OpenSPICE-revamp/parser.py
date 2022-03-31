@@ -29,7 +29,8 @@ def netlist():
     return ZeroOrMore(branch, OneOrMore(newline)), Optional(branch)
 
 def branch():
-    return [resistor, capacitor, inductor, vsource, isource, extvsource, extisource, vccssource]
+    return [resistor, capacitor, inductor, vsource, isource, extvsource, extisource,
+            vccssource, vcvssource, ccvssource, cccssource]
 
 #######################################################################################
 
@@ -58,6 +59,15 @@ def extisource():
 
 def vccssource():
     return vccscomponent, node, node, node, node, passiveValue
+
+def vcvssource():
+    return vcvscomponent, node, node, node, node, passiveValue
+
+def ccvssource():
+    return ccvscomponent, node, node, node, node, passiveValue
+
+def cccssource():
+    return cccscomponent, node, node, node, node, passiveValue
 
 #######################################################################################
 
@@ -108,6 +118,15 @@ def icomponent():
 
 def vccscomponent():
     return RegExMatch(r'G\d+')
+
+def vcvscomponent():
+    return RegExMatch(r'E\d+')
+
+def ccvscomponent():
+    return RegExMatch(r'H\d+')
+
+def cccscomponent():
+    return RegExMatch(r'F\d+')
 
 #######################################################################################
 
@@ -179,6 +198,33 @@ def gen_dict_from_branch(nonterm):
                                               nonterm[0][4].value,
                                               nonterm[0][5].value,
                                               is_voltage_controlled=True)}
+    elif nonterm[0].rule_name == "vcvssource":
+        assert len(nonterm[0]) == 6
+        return {"component"  : VSource,
+                "node_plus"  : nonterm[0][1].value,
+                "node_minus" : nonterm[0][2].value,
+                "value"      : linear_dep_src(nonterm[0][3].value,
+                                              nonterm[0][4].value,
+                                              nonterm[0][5].value,
+                                              is_voltage_controlled=True)}
+    elif nonterm[0].rule_name == "ccvssource":
+        assert len(nonterm[0]) == 6
+        return {"component"  : VSource,
+                "node_plus"  : nonterm[0][1].value,
+                "node_minus" : nonterm[0][2].value,
+                "value"      : linear_dep_src(nonterm[0][3].value,
+                                              nonterm[0][4].value,
+                                              nonterm[0][5].value,
+                                              is_voltage_controlled=False)}
+    elif nonterm[0].rule_name == "cccssource":
+        assert len(nonterm[0]) == 6
+        return {"component"  : ISource,
+                "node_plus"  : nonterm[0][1].value,
+                "node_minus" : nonterm[0][2].value,
+                "value"      : linear_dep_src(nonterm[0][3].value,
+                                              nonterm[0][4].value,
+                                              nonterm[0][5].value,
+                                              is_voltage_controlled=False)}
     else:
         assert False
 
@@ -208,5 +254,5 @@ def parse(txt):
 
 if __name__ == "__main__":
     parser = ParserPython(netlist, ws='\t\r ')
-    with open("vccs.cir", "r") as f:
+    with open("dep_sources.cir", "r") as f:
         print(parse(f.read()))
