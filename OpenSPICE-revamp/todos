@@ -40,3 +40,4 @@ Down the road:
 - Add multiplier m for current sources
 - Finish behavioral sources
 - May need some control modifications. For instance, .endc ending and not .end.
+- Consider recycling any PySpice ngspice netlist parser. Basic parser working for now.
