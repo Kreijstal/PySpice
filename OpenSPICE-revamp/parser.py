@@ -23,7 +23,7 @@ def netlist():
     return ZeroOrMore(branch, OneOrMore(newline)), Optional(branch)
 
 def branch():
-    return [resistor, capacitor]
+    return [resistor, capacitor, inductor]
 
 #######################################################################################
 
@@ -105,7 +105,7 @@ def gen_dict_from_branch(nonterm):
                 "node_minus" : nonterm[0][2].value,
                 "value"      : nonterm[0][3].value}
         if len(nonterm[0]) == 5:
-            _cap["ic"] = nonterm[0][4][1].value
+            _ind["ic"] = nonterm[0][4][1].value
         return _ind
     else:
         assert False
@@ -126,5 +126,5 @@ def parse(txt):
 
 if __name__ == "__main__":
     parser = ParserPython(netlist, ws='\t\r ')
-    with open("rc_netlist_w_ic.cir", "r") as f:
+    with open("rlc_netlist_w_ic.cir", "r") as f:
         print(parse(f.read()))
