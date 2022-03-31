@@ -26,12 +26,46 @@ class ISource:
 # Top-Level Netlist Rules #
 
 def netlist():
-    return ZeroOrMore(branch, OneOrMore(newline)), Optional(branch)
+    return ZeroOrMore(branch, OneOrMore(newline)), Optional([branch, ctrl])
 
 def branch():
     # TODO: Enable behavisource and behavvsource
     return [resistor, capacitor, inductor, vsource, isource, extvsource, extisource,
             vccssource, vcvssource, ccvssource, cccssource]
+
+def ctrl():
+    return control, OneOrMore(newline), [op_pt, tran], OneOrMore(newline), end
+
+#######################################################################################
+
+# Control Rules #
+
+def control():
+    return RegExMatch('.control')
+
+def op_pt():
+    return RegExMatch('.op')
+
+def tran():
+    return RegExMatch('.tran'), tstep, tstop, Optional(tstart, Optional(tmax)), Optional(uic)
+
+def tstep():
+    return _float()
+
+def tstop():
+    return _float()
+
+def tstart():
+    return _float()
+
+def tmax():
+    return _float()
+
+def uic():
+    return RegExMatch("uic")
+
+def _float():
+    return RegExMatch(r'[+-]?([0-9]+([.][0-9]*)?|[.][0-9]+)')
 
 #######################################################################################
 
