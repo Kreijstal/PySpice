@@ -69,7 +69,7 @@ def gen_dict_from_branch(nonterm):
                 "node_minus" : nonterm[0][2].value,
                 "value"      : nonterm[0][3].value}
         if len(nonterm[0]) == 5:
-            _cap["ic" : nonterm[0][4].value.replace("ic=", "")]
+            _cap["ic"] = nonterm[0][4][1].value
         return _cap
     else:
         assert False
@@ -85,7 +85,7 @@ def gen_data_dicts(ptree):
 
 if __name__ == "__main__":
     parser = ParserPython(netlist, ws='\t\r ')
-    with open("multi_r_netlist.cir") as f:
+    with open("rc_netlist_w_ic.cir") as f:
         ptree = parser.parse(f.read()) 
         ptree = filter_terms(ptree)
         print(gen_data_dicts(ptree))
