@@ -30,7 +30,7 @@ def netlist():
 
 def branch():
     return [resistor, capacitor, inductor, vsource, isource, extvsource, extisource,
-            vccssource, vcvssource, ccvssource, cccssource]
+            vccssource, vcvssource, ccvssource, cccssource, behavisource]
 
 #######################################################################################
 
@@ -69,6 +69,12 @@ def ccvssource():
 def cccssource():
     return cccscomponent, node, node, node, node, passiveValue
 
+def behavisource():
+    return behavsrccomponent, node, node, iequalsbehav
+
+def behavvsource():
+    return behavsrccomponent, node, node, vequalsbehav
+
 #######################################################################################
 
 # Generic Branch Rules #
@@ -96,6 +102,16 @@ def zero():
 
 def external():
     return RegExMatch(r'external')
+
+def iequalsbehav():
+    return RegExMatch(r'i='), behavexpr
+
+def vequalsbehav():
+    return RegExMatch(r'v='), behavexpr
+
+def behavexpr():
+    # TODO
+    return RegExMatch('')
 
 #######################################################################################
 
@@ -127,6 +143,9 @@ def ccvscomponent():
 
 def cccscomponent():
     return RegExMatch(r'F\d+')
+
+def behavsrccomponent():
+    return RegExMatch(r'B\d+')
 
 #######################################################################################
 
