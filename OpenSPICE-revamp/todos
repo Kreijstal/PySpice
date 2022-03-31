@@ -8,9 +8,9 @@
     (c) CCCS (X)
     (d) VCCS (X)
 6) Behavioral sources (1/2)
-7) .control statements for...
-    (a) DC op point
-    (b) transient sim
+7) .control statements for... (X)
+    (a) DC op point (X)
+    (b) transient sim (X)
 ----- parser.py done ------
 0) Break off cap, ind, res, etc. classes into a separate file
 imported by parser.py and eqnstr.py
@@ -39,3 +39,4 @@ from existing OpenSPICE.
 Down the road:
 - Add multiplier m for current sources
 - Finish behavioral sources
+- May need some control modifications. For instance, .endc ending and not .end.
