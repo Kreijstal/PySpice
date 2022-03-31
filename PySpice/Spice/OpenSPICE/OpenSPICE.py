@@ -453,6 +453,11 @@ def _spice_input(input_filename, output_filename):
     with open(input_filename, "r") as netlist_file:
         netlist_file_contents = netlist_file.read()
         sim_type = get_sim_type(netlist_file_contents)
+        dt = 0.00
+        end_time = 0.00
+        start_time = 0.00
+        tmax = 0.00
+        uic = False
         if sim_type == "transient":
             [dt, end_time, start_time, tmax, uic] = get_tran_params(netlist_file_contents)
         netlist_file_contents = filter_dot_statements(netlist_file_contents)
