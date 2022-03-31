@@ -29,8 +29,9 @@ def netlist():
     return ZeroOrMore(branch, OneOrMore(newline)), Optional(branch)
 
 def branch():
+    # TODO: Enable behavisource and behavvsource
     return [resistor, capacitor, inductor, vsource, isource, extvsource, extisource,
-            vccssource, vcvssource, ccvssource, cccssource, behavisource]
+            vccssource, vcvssource, ccvssource, cccssource]
 
 #######################################################################################
 
