@@ -2,6 +2,7 @@
 
 from arpeggio import ZeroOrMore, EOF, Optional, OneOrMore, RegExMatch, ParserPython, Terminal, NonTerminal
 from components import Resistor, Capacitor, Inductor, VSource, ISource
+from common import v_format, i_format
 
 #######################################################################################
 
@@ -209,20 +210,22 @@ def gen_dict_from_ctrl(nonterm):
     else:
         assert False
 
-def gen_dict_from_branch(nonterm):
+def gen_dict_from_branch(nonterm, branch_idx):
     assert nonterm_is_branch(nonterm)
     if   nonterm[0].rule_name == "resistor":
         assert len(nonterm[0]) == 4
         return {"component"  : Resistor,
                 "node_plus"  : nonterm[0][1].value,
                 "node_minus" : nonterm[0][2].value,
-                "value"      : nonterm[0][3].value}
+                "value"      : nonterm[0][3].value,
+                "branch_idx" : branch_idx}
     elif nonterm[0].rule_name == "capacitor":
         assert len(nonterm[0]) == 4 or len(nonterm[0]) == 5
         _cap = {"component"  : Capacitor,
                 "node_plus"  : nonterm[0][1].value,
                 "node_minus" : nonterm[0][2].value,
-                "value"      : nonterm[0][3].value}
+                "value"      : nonterm[0][3].value,
+                "branch_idx" : branch_idx}
         if len(nonterm[0]) == 5:
             _cap["ic"] = nonterm[0][4][1].value
         return _cap
@@ -231,7 +234,8 @@ def gen_dict_from_branch(nonterm):
         _ind = {"component"  : Inductor,
                 "node_plus"  : nonterm[0][1].value,
                 "node_minus" : nonterm[0][2].value,
-                "value"      : nonterm[0][3].value}
+                "value"      : nonterm[0][3].value,
+                "branch_idx" : branch_idx}
         if len(nonterm[0]) == 5:
             _ind["ic"] = nonterm[0][4][1].value
         return _ind
@@ -240,25 +244,29 @@ def gen_dict_from_branch(nonterm):
         return {"component"  : VSource,
                 "node_plus"  : nonterm[0][1].value,
                 "node_minus" : nonterm[0][2].value,
-                "value"      : nonterm[0][3].value}
+                "value"      : nonterm[0][3].value,
+                "branch_idx" : branch_idx}
     elif nonterm[0].rule_name == "isource":
         assert len(nonterm[0]) == 4
         return {"component"  : ISource,
                 "node_plus"  : nonterm[0][1].value,
                 "node_minus" : nonterm[0][2].value,
-                "value"      : nonterm[0][3].value}
+                "value"      : nonterm[0][3].value,
+                "branch_idx" : branch_idx}
     elif nonterm[0].rule_name == "extvsource":
         assert len(nonterm[0]) == 6
         return {"component"  : VSource,
                 "node_plus"  : nonterm[0][1].value,
                 "node_minus" : nonterm[0][2].value,
-                "value"      : "get_vsrc()"}
+                "value"      : "get_vsrc()",
+                "branch_idx" : branch_idx}
     elif nonterm[0].rule_name == "extisource":
         assert len(nonterm[0]) == 6
         return {"component"  : ISource,
                 "node_plus"  : nonterm[0][1].value,
                 "node_minus" : nonterm[0][2].value,
-                "value"      : "get_isrc()"}
+                "value"      : "get_isrc()",
+                "branch_idx" : branch_idx}
     elif nonterm[0].rule_name == "vccssource":
         assert len(nonterm[0]) == 6
         return {"component"  : ISource,
@@ -267,7 +275,8 @@ def gen_dict_from_branch(nonterm):
                 "value"      : linear_dep_src(nonterm[0][3].value,
                                               nonterm[0][4].value,
                                               nonterm[0][5].value,
-                                              is_voltage_controlled=True)}
+                                              is_voltage_controlled=True),
+                "branch_idx" : branch_idx}
     elif nonterm[0].rule_name == "vcvssource":
         assert len(nonterm[0]) == 6
         return {"component"  : VSource,
@@ -276,7 +285,8 @@ def gen_dict_from_branch(nonterm):
                 "value"      : linear_dep_src(nonterm[0][3].value,
                                               nonterm[0][4].value,
                                               nonterm[0][5].value,
-                                              is_voltage_controlled=True)}
+                                              is_voltage_controlled=True),
+                "branch_idx" : branch_idx}
     elif nonterm[0].rule_name == "ccvssource":
         assert len(nonterm[0]) == 6
         return {"component"  : VSource,
@@ -285,7 +295,8 @@ def gen_dict_from_branch(nonterm):
                 "value"      : linear_dep_src(nonterm[0][3].value,
                                               nonterm[0][4].value,
                                               nonterm[0][5].value,
-                                              is_voltage_controlled=False)}
+                                              is_voltage_controlled=False),
+                "branch_idx" : branch_idx}
     elif nonterm[0].rule_name == "cccssource":
         assert len(nonterm[0]) == 6
         return {"component"  : ISource,
@@ -294,39 +305,27 @@ def gen_dict_from_branch(nonterm):
                 "value"      : linear_dep_src(nonterm[0][3].value,
                                               nonterm[0][4].value,
                                               nonterm[0][5].value,
-                                              is_voltage_controlled=False)}
+                                              is_voltage_controlled=False),
+                "branch_idx" : branch_idx}
     else:
         assert False
-
-def v_format(s):
-    return "x['v({})']".format(s)
-
-def i_format(s):
-    return "x['i({})']".format(s)
 
 def linear_dep_src(s_plus, s_minus, gain, is_voltage_controlled=True):
     return "(({})*(({})-({})))".format(gain, v_format(s_plus)  if is_voltage_controlled else i_format(s_plus),
                                              v_format(s_minus) if is_voltage_controlled else i_format(s_minus))
 
-def gen_dict(nonterm):
-    if nonterm_is_branch(nonterm):
-        return gen_dict_from_branch(nonterm)
-    elif nonterm_is_ctrl(nonterm):
-        return gen_dict_from_ctrl(nonterm)
-    else:
-        assert False
-
 def gen_data_dicts(ptree):
-    branches = [gen_dict_from_branch(_) for _ in ptree if nonterm_is_branch(_)]
-    ctrl     = [gen_dict_from_ctrl  (_) for _ in ptree if nonterm_is_ctrl  (_)]
+    branches = [_ for _ in ptree if nonterm_is_branch(_)]
+    branches = [gen_dict_from_branch(_, branch_idx) for branch_idx,_ in enumerate(branches)]
+    ctrl     = [gen_dict_from_ctrl(_) for _ in ptree if nonterm_is_ctrl(_)]
     return {"branches" : branches, "ctrl" : ctrl}
 
 def parse(txt):
+    parser = ParserPython(netlist, ws='\t\r ')
     return gen_data_dicts(filter_terms(parser.parse(txt)))
 
 #######################################################################################
 
 if __name__ == "__main__":
-    parser = ParserPython(netlist, ws='\t\r ')
     with open("tran.cir", "r") as f:
         print(parse(f.read()))
