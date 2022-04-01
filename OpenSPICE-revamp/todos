@@ -17,9 +17,9 @@ imported by parser.py and eqnstr.py (X)
 1) Strategy pattern skeleton (X)
 2) Equation formatting for transient and op pt
     (a) Op pt formatting (X)
-    (b) Transient formatting
+    (b) Transient formatting (X)
     (c) Add KCL equations for op pt (X)
-    (d) Add KCL equations for transient
+    (d) Add KCL equations for transient (X)
 3) Document interface at top of eqnstr.py
 4) Document that parser.py's interface is simply ngspice netlist
 5) Write OpenSPICE.py as top-level file to call both.

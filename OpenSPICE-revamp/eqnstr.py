@@ -97,3 +97,7 @@ if __name__ == "__main__":
         branch_dicts = netlist.parse(f.read())["branches"]
         strat = EqnStrOpPtStrategy()
         print(strat.gen_eqns(branch_dicts))
+    with open("tran.cir", "r") as f:
+        branch_dicts = netlist.parse(f.read())["branches"]
+        strat = EqnStrOpPtStrategy()
+        print(strat.gen_eqns(branch_dicts))
