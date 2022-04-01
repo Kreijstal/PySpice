@@ -22,7 +22,7 @@ imported by parser.py and eqnstr.py (X)
     (d) Add KCL equations for transient (X)
 3) Document interface at top of eqnstr.py
 4) Document that parser.py's interface is simply ngspice netlist
-5) Write OpenSPICE.py as top-level file to call both.
+5) Write OpenSPICE.py as top-level file to call both. (X)
 ----- eqnstr.py done ------
 1) ****** FIGURE OUT HOW TO DEAL WITH GET_VSRC, SEND_DATA, etc. ******
 2) Implement strategy pattern skeleton.

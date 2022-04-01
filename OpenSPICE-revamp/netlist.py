@@ -14,7 +14,7 @@ def netlist():
 def branch():
     # TODO: Enable behavisource and behavvsource
     return [resistor, capacitor, inductor, vsource, isource, extvsource, extisource,
-            vccssource, vcvssource, ccvssource, cccssource]
+            vccssource, vcvssource, ccvssource, cccssource, behavisource, behavvsource]
 
 def ctrl():
     return control, OneOrMore(newline), [op_pt, tran], OneOrMore(newline), end

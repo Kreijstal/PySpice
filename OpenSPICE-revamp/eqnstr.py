@@ -2,7 +2,7 @@
 
 from components import Resistor, Capacitor, Inductor, VSource, ISource
 from abc import ABC, abstractmethod
-from common import v_format, i_format
+from common import v_format, i_format, dv_format, di_format
 
 #################################################################
 
@@ -89,15 +89,20 @@ class EqnStrTransientStrategy(EqnStrStrategy):
         else:
             assert False
 
+def gen_eqns_top(parse_dict):
+    # TODO need to support multiple test types?
+    if   parse_dict["ctrl"][0]["test_type"] == "op_pt":
+        return EqnStrOpPtStrategy().gen_eqns(parse_dict["branches"])
+    elif parse_dict["ctrl"][0]["test_type"] == "tran" :
+        return EqnStrTransientStrategy().gen_eqns(parse_dict["branches"])
+    else:
+        assert False
+
 #################################################################
 
 if __name__ == "__main__":
     import netlist
     with open("op_pt.cir", "r") as f:
-        branch_dicts = netlist.parse(f.read())["branches"]
-        strat = EqnStrOpPtStrategy()
-        print(strat.gen_eqns(branch_dicts))
+        print(gen_eqns_top(netlist.parse(f.read())))
     with open("tran.cir", "r") as f:
-        branch_dicts = netlist.parse(f.read())["branches"]
-        strat = EqnStrOpPtStrategy()
-        print(strat.gen_eqns(branch_dicts))
+        print(gen_eqns_top(netlist.parse(f.read())))
