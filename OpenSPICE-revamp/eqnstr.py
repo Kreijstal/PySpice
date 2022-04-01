@@ -8,12 +8,6 @@ from common import v_format, i_format, dv_format, di_format
 
 # Top-Level Classes for Strategy Pattern #
 
-class EqnStrContext:
-    def __init__(self, strategy):
-        self.strategy = strategy
-    def execute_strategy(self, branch_dicts):
-        return self.strategy.gen_eqns(branch_dicts)
-
 class EqnStrStrategy(ABC):
     @abstractmethod
     def gen_eqn_from_branch(self, _b):
