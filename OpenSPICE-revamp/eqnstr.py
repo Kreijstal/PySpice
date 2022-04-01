@@ -63,8 +63,31 @@ class EqnStrOpPtStrategy(EqnStrStrategy):
 class EqnStrTransientStrategy(EqnStrStrategy):
     def __init__(self):
         pass
-    def gen_eqns(self, branch_dicts):
-        pass
+    def gen_eqn_from_branch(self, _b):
+        if   _b["component"] == Resistor:
+            return "(({})-({}))-(({})*({}))".format(v_format(_b["node_plus"]),
+                                                    v_format(_b["node_minus"]),
+                                                    i_format(_b["branch_idx"]),
+                                                             _b["value"])
+        elif _b["component"] == Capacitor:
+            return "((({})*dt)-(({})*(({})-({}))))".format(i_format(_b["branch_idx"]),
+                                                             _b["value"],
+                                                           dv_format(_b["node_plus"]),
+                                                           dv_format(_b["node_minus"]))
+        elif _b["component"] == Inductor:
+            return "(((({})-({}))*dt)-(({})*(({}))))".format(v_format(_b["node_plus"]),
+                                                             v_format(_b["node_minus"]),
+                                                                      _b["value"],
+                                                             di_format(_b["branch_idx"]))
+        elif _b["component"] == VSource:
+            return "((({})-({}))-({}))".format(v_format(_b["node_plus"]),
+                                               v_format(_b["node_minus"]),
+                                                        _b["value"])
+        elif _b["component"] == ISource:
+            return "(({})-({}))".format(i_format(_b["branch_idx"]),
+                                                 _b["value"])
+        else:
+            assert False
 
 #################################################################
 
