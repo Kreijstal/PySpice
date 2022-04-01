@@ -1,25 +1,7 @@
 #!/usr/bin/env python3
 
 from arpeggio import ZeroOrMore, EOF, Optional, OneOrMore, RegExMatch, ParserPython, Terminal, NonTerminal
-
-#######################################################################################
-
-# Component Classes #
-
-class Resistor:
-    pass
-
-class Capacitor:
-    pass
-
-class Inductor:
-    pass
-
-class VSource:
-    pass
-
-class ISource:
-    pass
+from components import Resistor, Capacitor, Inductor, VSource, ISource
 
 #######################################################################################
 

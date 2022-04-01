@@ -13,7 +13,7 @@
     (b) transient sim (X)
 ----- parser.py done ------
 0) Break off cap, ind, res, etc. classes into a separate file
-imported by parser.py and eqnstr.py
+imported by parser.py and eqnstr.py (X)
 1) Strategy pattern skeleton
 2) Equation formatting for transient and op pt
 3) Document interface at top of eqnstr.py
