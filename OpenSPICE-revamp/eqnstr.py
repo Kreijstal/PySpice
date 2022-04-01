@@ -27,7 +27,7 @@ class EqnStrOpPtStrategy(EqnStrStrategy):
     def __init__(self):
         pass
     def gen_eqns(self, branch_dicts):
-        return [self.gen_eqn_from_branch(_b) for _b in branch_dicts.items()] + self.gen_kcl_eqns(branch_dicts)
+        return [self.gen_eqn_from_branch(_b) for _b in branch_dicts] + self.gen_kcl_eqns(branch_dicts)
     def gen_kcl_eqns(self, branch_dicts):
         nodes = sorted(set().union(*[{d["node_plus"], d["node_minus"]} for d in branch_dicts]))
         assert "0" in nodes
@@ -40,21 +40,21 @@ class EqnStrOpPtStrategy(EqnStrStrategy):
                 kcl_dict[b["node_minus"]].append("+({})".format(i_format(b["branch_idx"])))
         return ["".join(v) for v in kcl_dict.values()]
     def gen_eqn_from_branch(self, _b):
-        if type(_b) == Resistor:
+        if   _b["component"] == Resistor:
             return "(({})-({}))-(({})*({}))".format(v_format(_b["node_plus"]),
                                                     v_format(_b["node_minus"]),
                                                     i_format(_b["branch_idx"]),
                                                              _b["value"])
-        elif type(_b) == Capacitor:
+        elif _b["component"] == Capacitor:
             return "(({})-({}))".format(i_format(_b["branch_idx"]), 0.00)
-        elif type(_b) == Inductor:
+        elif _b["component"] == Inductor:
             return "((({})-({}))-({}))".format(v_format(_b["node_plus"]),
                                                v_format(_b["node_minus"]), 0.00)
-        elif type(_b) == VSource:
+        elif _b["component"] == VSource:
             return "((({})-({}))-({}))".format(v_format(_b["node_plus"]),
                                                v_format(_b["node_minus"]),
                                                         _b["value"])
-        elif type(_b) == ISource:
+        elif _b["component"] == ISource:
             return "(({})-({}))".format(i_format(_b["branch_idx"]),
                                                  _b["value"])
         else:
@@ -73,4 +73,4 @@ if __name__ == "__main__":
     with open("op_pt.cir", "r") as f:
         branch_dicts = netlist.parse(f.read())["branches"]
         strat = EqnStrOpPtStrategy()
-        print(strat.gen_kcl_eqns(branch_dicts))
+        print(strat.gen_eqns(branch_dicts))
