@@ -18,16 +18,6 @@ class EqnStrStrategy(ABC):
     @abstractmethod
     def gen_eqns(self, branch_dicts):
         pass
-
-#################################################################
-
-# Strategies #
-
-class EqnStrOpPtStrategy(EqnStrStrategy):
-    def __init__(self):
-        pass
-    def gen_eqns(self, branch_dicts):
-        return [self.gen_eqn_from_branch(_b) for _b in branch_dicts] + self.gen_kcl_eqns(branch_dicts)
     def gen_kcl_eqns(self, branch_dicts):
         nodes = sorted(set().union(*[{d["node_plus"], d["node_minus"]} for d in branch_dicts]))
         assert "0" in nodes
@@ -39,6 +29,16 @@ class EqnStrOpPtStrategy(EqnStrStrategy):
             if b["node_minus"] != "0":
                 kcl_dict[b["node_minus"]].append("+({})".format(i_format(b["branch_idx"])))
         return ["".join(v) for v in kcl_dict.values()]
+
+#################################################################
+
+# Strategies #
+
+class EqnStrOpPtStrategy(EqnStrStrategy):
+    def __init__(self):
+        pass
+    def gen_eqns(self, branch_dicts):
+        return [self.gen_eqn_from_branch(_b) for _b in branch_dicts] + self.gen_kcl_eqns(branch_dicts)
     def gen_eqn_from_branch(self, _b):
         if   _b["component"] == Resistor:
             return "(({})-({}))-(({})*({}))".format(v_format(_b["node_plus"]),
