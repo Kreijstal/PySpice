@@ -3,6 +3,7 @@
 from arpeggio import ZeroOrMore, EOF, Optional, OneOrMore, RegExMatch, ParserPython, Terminal, NonTerminal
 from components import Resistor, Capacitor, Inductor, VSource, ISource
 from common import v_format, i_format
+from abc import ABC, abstractmethod
 
 #######################################################################################
 
@@ -52,6 +53,93 @@ def end():
 
 def _float():
     return RegExMatch(r'[+-]?([0-9]+([.][0-9]*)?|[.][0-9]+)')
+
+#######################################################################################
+
+# Text Formatting Classes #
+
+class TextFmt(ABC):
+    @abstractmethod
+    def gen_txt_str(self, nodes):
+        pass
+
+class ResistorTextFmt(TextFmt):
+    def __init__(self, value):
+        self.value = value
+    def gen_txt_str(self, nodes):
+        return self.value
+
+class CapacitorTextFmt(TextFmt):
+    def __init__(self, value):
+        self.value = value
+    def gen_txt_str(self, nodes):
+        return self.value
+
+class InductorTextFmt(TextFmt):
+    def __init__(self, value):
+        self.value = value
+    def gen_txt_str(self, nodes):
+        return self.value
+
+class VSourceTextFmt(TextFmt):
+    def __init__(self, value):
+        self.value = value
+    def gen_txt_str(self, nodes):
+        return self.value
+
+class ISourceTextFmt(TextFmt):
+    def __init__(self, value):
+        self.value = value
+    def gen_txt_str(self, nodes):
+        return self.value
+
+class ExtVSourceTextFmt(TextFmt):
+    def __init__(self):
+        pass
+    def gen_txt_str(self, nodes):
+        return "(get_vsrc())"
+
+class ExtISourceTextFmt(TextFmt):
+    def __init__(self, value):
+        pass
+    def gen_txt_str(self, nodes):
+        return "(get_isrc())"
+
+class VCCSSourceTextFmt(TextFmt):
+    def __init__(self, value, node_plus, node_minus):
+        self.value = value
+        self.node_plus = node_plus
+        self.node_minus = node_minus
+    def gen_txt_str(self, nodes):
+        return "(({})*(({})-({})))".format(self.value, v_format(self.node_plus,  nodes),
+                                                       v_format(self.node_minus, nodes))
+
+class VCVSSourceTextFmt(TextFmt):
+    def __init__(self, value, node_plus, node_minus):
+        self.value = value
+        self.node_plus = node_plus
+        self.node_minus = node_minus
+    def gen_txt_str(self, nodes):
+        return "(({})*(({})-({})))".format(self.value, v_format(self.node_plus,  nodes),
+                                                       v_format(self.node_minus, nodes))
+
+class CCVSSourceTextFmt(TextFmt):
+    def __init__(self, value, branch_plus, branch_minus):
+        self.value = value
+        self.branch_plus = branch_plus
+        self.branch_minus = branch_minus
+    def gen_txt_str(self, nodes):
+        return "(({})*(({})-({})))".format(self.value, i_format(self.branch_plus,  nodes),
+                                                       i_format(self.branch_minus, nodes))
+
+class CCCSSourceTextFmt(TextFmt):
+    def __init__(self, value, branch_plus, branch_minus):
+        self.value = value
+        self.branch_plus = branch_plus
+        self.branch_minus = branch_minus
+    def gen_txt_str(self, nodes):
+        return "(({})*(({})-({})))".format(self.value, i_format(self.branch_plus,  nodes),
+                                                       i_format(self.branch_minus, nodes))
 
 #######################################################################################
 
@@ -172,6 +260,15 @@ def behavsrccomponent():
 
 # Parsing Functions #
 
+class Netlist:
+    def __init__(self):
+        self.nodes    = []
+        self.branches = []
+
+    def gen_dict_from_branch(self, nonterm, branch_idx):
+        assert nonterm_is_branch(nonterm)
+
+
 def filter_terms(ptree):
     return [_ for _ in ptree if type(_) != Terminal]
 
@@ -217,14 +314,14 @@ def gen_dict_from_branch(nonterm, branch_idx):
         return {"component"  : Resistor,
                 "node_plus"  : nonterm[0][1].value,
                 "node_minus" : nonterm[0][2].value,
-                "value"      : nonterm[0][3].value,
+                "value"      : ResistorTextFmt(nonterm[0][3].value),
                 "branch_idx" : branch_idx}
     elif nonterm[0].rule_name == "capacitor":
         assert len(nonterm[0]) == 4 or len(nonterm[0]) == 5
         _cap = {"component"  : Capacitor,
                 "node_plus"  : nonterm[0][1].value,
                 "node_minus" : nonterm[0][2].value,
-                "value"      : nonterm[0][3].value,
+                "value"      : CapacitorTextFmt(nonterm[0][3].value),
                 "branch_idx" : branch_idx}
         if len(nonterm[0]) == 5:
             _cap["ic"] = nonterm[0][4][1].value
@@ -234,7 +331,7 @@ def gen_dict_from_branch(nonterm, branch_idx):
         _ind = {"component"  : Inductor,
                 "node_plus"  : nonterm[0][1].value,
                 "node_minus" : nonterm[0][2].value,
-                "value"      : nonterm[0][3].value,
+                "value"      : InductorTextFmt(nonterm[0][3].value),
                 "branch_idx" : branch_idx}
         if len(nonterm[0]) == 5:
             _ind["ic"] = nonterm[0][4][1].value
@@ -244,81 +341,77 @@ def gen_dict_from_branch(nonterm, branch_idx):
         return {"component"  : VSource,
                 "node_plus"  : nonterm[0][1].value,
                 "node_minus" : nonterm[0][2].value,
-                "value"      : nonterm[0][3].value,
+                "value"      : VSourceTextFmt(nonterm[0][3].value),
                 "branch_idx" : branch_idx}
     elif nonterm[0].rule_name == "isource":
         assert len(nonterm[0]) == 4
         return {"component"  : ISource,
                 "node_plus"  : nonterm[0][1].value,
                 "node_minus" : nonterm[0][2].value,
-                "value"      : nonterm[0][3].value,
+                "value"      : ISourceTextFmt(nonterm[0][3].value),
                 "branch_idx" : branch_idx}
     elif nonterm[0].rule_name == "extvsource":
         assert len(nonterm[0]) == 6
         return {"component"  : VSource,
                 "node_plus"  : nonterm[0][1].value,
                 "node_minus" : nonterm[0][2].value,
-                "value"      : "get_vsrc()",
+                "value"      : ExtVSourceTextFmt(),
                 "branch_idx" : branch_idx}
     elif nonterm[0].rule_name == "extisource":
         assert len(nonterm[0]) == 6
         return {"component"  : ISource,
                 "node_plus"  : nonterm[0][1].value,
                 "node_minus" : nonterm[0][2].value,
-                "value"      : "get_isrc()",
+                "value"      : ExtISourceTextFmt(),
                 "branch_idx" : branch_idx}
     elif nonterm[0].rule_name == "vccssource":
         assert len(nonterm[0]) == 6
         return {"component"  : ISource,
                 "node_plus"  : nonterm[0][1].value,
                 "node_minus" : nonterm[0][2].value,
-                "value"      : linear_dep_src(nonterm[0][3].value,
-                                              nonterm[0][4].value,
-                                              nonterm[0][5].value,
-                                              is_voltage_controlled=True),
+                "value"      : VCCSSourceTextFmt(nonterm[0][5].value,
+                                                 nonterm[0][3].value,
+                                                 nonterm[0][4].value),
                 "branch_idx" : branch_idx}
     elif nonterm[0].rule_name == "vcvssource":
         assert len(nonterm[0]) == 6
         return {"component"  : VSource,
                 "node_plus"  : nonterm[0][1].value,
                 "node_minus" : nonterm[0][2].value,
-                "value"      : linear_dep_src(nonterm[0][3].value,
-                                              nonterm[0][4].value,
-                                              nonterm[0][5].value,
-                                              is_voltage_controlled=True),
+                "value"      : VCVSSourceTextFmt(nonterm[0][5].value,
+                                                 nonterm[0][3].value,
+                                                 nonterm[0][4].value),
                 "branch_idx" : branch_idx}
     elif nonterm[0].rule_name == "ccvssource":
         assert len(nonterm[0]) == 6
         return {"component"  : VSource,
                 "node_plus"  : nonterm[0][1].value,
                 "node_minus" : nonterm[0][2].value,
-                "value"      : linear_dep_src(nonterm[0][3].value,
-                                              nonterm[0][4].value,
-                                              nonterm[0][5].value,
-                                              is_voltage_controlled=False),
+                "value"      : CCVSSourceTextFmt(nonterm[0][5].value,
+                                                 nonterm[0][3].value,
+                                                 nonterm[0][4].value),
                 "branch_idx" : branch_idx}
     elif nonterm[0].rule_name == "cccssource":
         assert len(nonterm[0]) == 6
         return {"component"  : ISource,
                 "node_plus"  : nonterm[0][1].value,
                 "node_minus" : nonterm[0][2].value,
-                "value"      : linear_dep_src(nonterm[0][3].value,
-                                              nonterm[0][4].value,
-                                              nonterm[0][5].value,
-                                              is_voltage_controlled=False),
+                "value"      : CCCSSourceTextFmt(nonterm[0][5].value,
+                                                 nonterm[0][3].value,
+                                                 nonterm[0][4].value),
                 "branch_idx" : branch_idx}
     else:
         assert False
 
-def linear_dep_src(s_plus, s_minus, gain, is_voltage_controlled=True):
-    return "(({})*(({})-({})))".format(gain, v_format(s_plus)  if is_voltage_controlled else i_format(s_plus),
-                                             v_format(s_minus) if is_voltage_controlled else i_format(s_minus))
-
 def gen_data_dicts(ptree):
     branches = [_ for _ in ptree if nonterm_is_branch(_)]
     branches = [gen_dict_from_branch(_, branch_idx) for branch_idx,_ in enumerate(branches)]
+    nodes    = sorted(set().union(*[{d["node_plus"], d["node_minus"]} for d in branches]))
+    assert "0" in nodes
+    nodes.remove("0")
+    [_.update({"value" : _["value"].gen_txt_str(nodes)}) for _ in branches]
     ctrl     = [gen_dict_from_ctrl(_) for _ in ptree if nonterm_is_ctrl(_)]
-    return {"branches" : branches, "ctrl" : ctrl}
+    return {"branches" : branches, "nodes" : nodes, "ctrl" : ctrl}
 
 def parse(txt):
     parser = ParserPython(netlist, ws='\t\r ')
@@ -327,5 +420,5 @@ def parse(txt):
 #######################################################################################
 
 if __name__ == "__main__":
-    with open("tran.cir", "r") as f:
+    with open("dep_sources.cir", "r") as f:
         print(parse(f.read()))
