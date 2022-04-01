@@ -56,26 +56,26 @@ class EqnStrTransientStrategy(EqnStrStrategy):
         pass
     def gen_eqn_from_branch(self, _b, _n):
         if   _b["component"] == Resistor:
-            return "(({})-({}))-(({})*({}))".format(v_format(_b["node_plus"]),
-                                                    v_format(_b["node_minus"]),
-                                                    i_format(_b["branch_idx"]),
+            return "(({})-({}))-(({})*({}))".format(v_format(_b["node_plus"],  _n, trans=True),
+                                                    v_format(_b["node_minus"], _n, trans=True),
+                                                    i_format(_b["branch_idx"], _n, trans=True),
                                                              _b["value"])
         elif _b["component"] == Capacitor:
-            return "((({})*dt)-(({})*(({})-({}))))".format(i_format(_b["branch_idx"]),
+            return "((({})*dt)-(({})*(({})-({}))))".format(i_format(_b["branch_idx"],  _n, trans=True),
                                                              _b["value"],
-                                                           dv_format(_b["node_plus"]),
-                                                           dv_format(_b["node_minus"]))
+                                                           dv_format(_b["node_plus"],  _n),
+                                                           dv_format(_b["node_minus"], _n))
         elif _b["component"] == Inductor:
-            return "(((({})-({}))*dt)-(({})*(({}))))".format(v_format(_b["node_plus"]),
-                                                             v_format(_b["node_minus"]),
+            return "(((({})-({}))*dt)-(({})*(({}))))".format(v_format(_b["node_plus"],   _n, trans=True),
+                                                             v_format(_b["node_minus"],  _n, trans=True),
                                                                       _b["value"],
-                                                             di_format(_b["branch_idx"]))
+                                                             di_format(_b["branch_idx"], _n))
         elif _b["component"] == VSource:
-            return "((({})-({}))-({}))".format(v_format(_b["node_plus"]),
-                                               v_format(_b["node_minus"]),
+            return "((({})-({}))-({}))".format(v_format(_b["node_plus"],  _n, trans=True),
+                                               v_format(_b["node_minus"], _n, trans=True),
                                                         _b["value"])
         elif _b["component"] == ISource:
-            return "(({})-({}))".format(i_format(_b["branch_idx"]),
+            return "(({})-({}))".format(i_format(_b["branch_idx"], _n, trans=True),
                                                  _b["value"])
         else:
             assert False
@@ -95,6 +95,5 @@ if __name__ == "__main__":
     import netlist
     with open("op_pt.cir", "r") as f:
         print(gen_eqns_top(netlist.parse(f.read())))
-    assert False
     with open("tran.cir", "r") as f:
         print(gen_eqns_top(netlist.parse(f.read())))
