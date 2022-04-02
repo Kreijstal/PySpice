@@ -61,15 +61,26 @@ class EqnStrTransientStrategy(EqnStrStrategy):
                                                     i_format(_b["branch_idx"], _n, trans=True),
                                                              _b["value"])
         elif _b["component"] == Capacitor:
-            return "((({})*dt)-(({})*(({})-({}))))".format(i_format(_b["branch_idx"],  _n, trans=True),
-                                                             _b["value"],
-                                                           dv_format(_b["node_plus"],  _n),
-                                                           dv_format(_b["node_minus"], _n))
+            if "ic" in _b.keys():
+                prefix = "((({})-({}))-({})) if t == 0 else ".format(v_format(_b["node_plus"], _n, trans=True),
+                                                                     v_format(_b["node_minus"], _n, trans=True),
+                                                                              _b["ic"])
+            else:
+                prefix = ""
+            return prefix + "((({})*dt)-(({})*(({})-({}))))".format(i_format(_b["branch_idx"],  _n, trans=True),
+                                                                             _b["value"],
+                                                                   dv_format(_b["node_plus"],  _n),
+                                                                   dv_format(_b["node_minus"], _n))
         elif _b["component"] == Inductor:
-            return "(((({})-({}))*dt)-(({})*(({}))))".format(v_format(_b["node_plus"],   _n, trans=True),
-                                                             v_format(_b["node_minus"],  _n, trans=True),
-                                                                      _b["value"],
-                                                             di_format(_b["branch_idx"], _n))
+            if "ic" in _b.keys():
+                prefix = "(({})-({})) if t == 0 else ".format(i_format(_b["branch_idx"], _n, trans=True),
+                                                                       _b["ic"])
+            else:
+                prefix = ""
+            return prefix + "(((({})-({}))*dt)-(({})*(({}))))".format(v_format(_b["node_plus"],   _n, trans=True),
+                                                                      v_format(_b["node_minus"],  _n, trans=True),
+                                                                               _b["value"],
+                                                                     di_format(_b["branch_idx"], _n))
         elif _b["component"] == VSource:
             return "((({})-({}))-({}))".format(v_format(_b["node_plus"],  _n, trans=True),
                                                v_format(_b["node_minus"], _n, trans=True),
@@ -82,6 +93,7 @@ class EqnStrTransientStrategy(EqnStrStrategy):
 
 def gen_eqns_top(parse_dict):
     # TODO need to support multiple test types?
+    # TODO disable ic if uic arg is not provided to trans
     if   parse_dict["ctrl"][0]["test_type"] == "op_pt":
         return EqnStrOpPtStrategy().gen_eqns(parse_dict["branches"], parse_dict["nodes"])
     elif parse_dict["ctrl"][0]["test_type"] == "tran" :
