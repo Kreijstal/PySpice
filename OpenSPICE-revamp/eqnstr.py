@@ -18,9 +18,11 @@ class EqnStrStrategy(ABC):
         kcl_dict = dict(zip(nodes, [[]] * len(nodes)))
         for b in branch_dicts:
             if b["node_plus"] != "0":
-                kcl_dict[b["node_plus"]].append("-({})".format(i_format(b["branch_idx"],  nodes)))
+                # TODO: Why does this syntax not work?
+                # kcl_dict[b["node_plus"]].append("-({})".format(i_format(b["branch_idx"],  nodes)))
+                kcl_dict[b["node_plus"]] = kcl_dict[b["node_plus"]] + ["-({})".format(i_format(b["branch_idx"],  nodes))]
             if b["node_minus"] != "0":
-                kcl_dict[b["node_minus"]].append("+({})".format(i_format(b["branch_idx"], nodes)))
+                kcl_dict[b["node_minus"]] = kcl_dict[b["node_minus"]] + ["+({})".format(i_format(b["branch_idx"], nodes))]
         return ["".join(v) for v in kcl_dict.values()]
 
 #################################################################
@@ -105,7 +107,10 @@ def gen_eqns_top(parse_dict):
 
 if __name__ == "__main__":
     import netlist
-    with open("op_pt.cir", "r") as f:
-        print(gen_eqns_top(netlist.parse(f.read())))
-    with open("tran.cir", "r") as f:
-        print(gen_eqns_top(netlist.parse(f.read())))
+    # with open("op_pt.cir", "r") as f:
+    #     print(gen_eqns_top(netlist.parse(f.read())))
+    # with open("tran.cir", "r") as f:
+    #     print(gen_eqns_top(netlist.parse(f.read())))
+    with open("op_pt_divider.cir", "r") as f:
+        txt = f.read()
+        print(gen_eqns_top(netlist.parse(txt)))
