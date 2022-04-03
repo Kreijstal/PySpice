@@ -22,7 +22,7 @@ class EqnStrStrategy(ABC):
                 # kcl_dict[b["node_plus"]].append("-({})".format(i_format(b["branch_idx"],  nodes)))
                 kcl_dict[b["node_plus"]] = kcl_dict[b["node_plus"]] + ["-({})".format(i_format(b["branch_idx"],  nodes))]
             if b["node_minus"] != "0":
-                kcl_dict[b["node_minus"]] = kcl_dict[b["node_minus"]] + ["+({})".format(i_format(b["branch_idx"], nodes))]
+                kcl_dict[b["node_minus"]].append("+({})".format(i_format(b["branch_idx"], nodes)))
         return ["".join(v) for v in kcl_dict.values()]
 
 #################################################################
