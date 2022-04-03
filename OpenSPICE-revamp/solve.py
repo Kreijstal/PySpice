@@ -37,12 +37,14 @@ class TransientSolverStrategy(SolverStrategy):
         y = ldict['y']
         soln = []
         seed = [0.00] * len(self.eqns)
+        print(self.eqns)
         t = float(self.ctrl["tstart"])
         dt = float(self.ctrl["tstep"])
         tstop = float(self.ctrl["tstop"])
         while t < tstop:
             _y = lambda x : partial(y, x_prev=seed, t=t, dt=dt)(x)
-            soln.append(root(_y, [1.00] * len(self.eqns)).x)
+            seed = root(_y, [1.00] * len(self.eqns)).x
+            soln.append(seed)
             t += dt
         return soln
 
