@@ -2,6 +2,7 @@
 
 from abc import ABC, abstractmethod
 from scipy.optimize import root
+from functools import partial
 
 #################################################################
 
@@ -23,6 +24,28 @@ class OpPtSolverStrategy(SolverStrategy):
         y = ldict['y']
         return root(y, [1.00] * len(self.eqns)).x
 
+class TransientSolverStrategy(SolverStrategy):
+    def __init__(self, eqns, ctrl):
+        self.eqns = eqns
+        self.ctrl = ctrl
+    def solve_eqns(self):
+        # https://bugs.python.org/issue4831
+        ldict = locals()
+        print(self.eqns)
+        s = "y = lambda x , x_prev , t , dt : [" + ",".join(self.eqns) + "]"
+        exec(s, globals(), ldict)
+        y = ldict['y']
+        soln = []
+        seed = [0.00] * len(self.eqns)
+        t = float(self.ctrl["tstart"])
+        dt = float(self.ctrl["tstep"])
+        tstop = float(self.ctrl["tstop"])
+        while t < tstop:
+            _y = lambda x : partial(y, x_prev=seed, t=t, dt=dt)(x)
+            soln.append(root(_y, [1.00] * len(self.eqns)).x)
+            t += dt
+        return soln
+
 if __name__ == "__main__":
     import netlist
     import eqnstr
@@ -31,4 +54,11 @@ if __name__ == "__main__":
         n = netlist.parse(txt)
         eqn = eqnstr.gen_eqns_top(n)
         strat = OpPtSolverStrategy(eqn)
+        print(strat.solve_eqns())
+    with open("tran.cir", "r") as f:
+        txt = f.read()
+        n = netlist.parse(txt)
+        eqn = eqnstr.gen_eqns_top(n)
+        # TODO need to support multiple test types?
+        strat = TransientSolverStrategy(eqn, n["ctrl"][0])
         print(strat.solve_eqns())
