@@ -7,10 +7,16 @@ from abc import ABC, abstractmethod
 
 #######################################################################################
 
+# Constants
+
+DEFAULT_TITLE = "My Circuit"
+
+#######################################################################################
+
 # Top-Level Netlist Rules #
 
 def netlist():
-    return ZeroOrMore(branch, OneOrMore(newline)), Optional([branch, ctrl])
+    return Optional(RegExMatch(".title"), title), ZeroOrMore(branch, OneOrMore(newline)), Optional([branch, ctrl])
 
 def branch():
     # TODO: Enable behavisource and behavvsource
@@ -256,6 +262,15 @@ def cccscomponent():
 def behavsrccomponent():
     return RegExMatch(r'B\d+')
 
+
+#######################################################################################
+
+# Misc. Rules
+
+def title():
+    # https://stackoverflow.com/questions/336210/regular-expression-for-alphanumeric-and-underscores
+    return RegExMatch("^[a-zA-Z0-9_]*$")
+
 #######################################################################################
 
 # Parsing Functions #
@@ -279,6 +294,10 @@ def nonterm_is_branch(nonterm):
 def nonterm_is_ctrl(nonterm):
     assert type(nonterm) == NonTerminal
     return "ctrl" in nonterm.name
+
+def nonterm_is_title(nonterm):
+    assert type(nonterm) == NonTerminal
+    return "title" in nonterm.name
 
 def gen_dict_from_ctrl(nonterm):
     assert nonterm_is_ctrl(nonterm)
@@ -411,7 +430,11 @@ def gen_data_dicts(ptree):
     nodes.remove("0")
     [_.update({"value" : _["value"].gen_txt_str(nodes)}) for _ in branches]
     ctrl     = [gen_dict_from_ctrl(_) for _ in ptree if nonterm_is_ctrl(_)]
-    return {"branches" : branches, "nodes" : nodes, "ctrl" : ctrl}
+    titles   = [_.value for _ in ptree if nonterm_is_title(_)]
+    assert len(titles) == 1 or len(titles) == 0
+    if len(titles) == 0:
+        titles.append(DEFAULT_TITLE)
+    return {"branches" : branches, "nodes" : nodes, "ctrl" : ctrl, "title" : titles[0]}
 
 def parse(txt):
     parser = ParserPython(netlist, ws='\t\r ')

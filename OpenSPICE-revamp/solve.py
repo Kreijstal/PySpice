@@ -22,7 +22,8 @@ class OpPtSolverStrategy(SolverStrategy):
         s = "y = lambda x : [" + ",".join(self.eqns) + "]"
         exec(s, globals(), ldict)
         y = ldict['y']
-        return root(y, [1.00] * len(self.eqns)).x
+        # t = 0.00
+        return [[0.00] + root(y, [1.00] * len(self.eqns)).x]
 
 class TransientSolverStrategy(SolverStrategy):
     def __init__(self, eqns, ctrl):
@@ -43,7 +44,7 @@ class TransientSolverStrategy(SolverStrategy):
         tstop = float(self.ctrl["tstop"])
         while t < tstop:
             _y = lambda x : partial(y, x_prev=seed, t=t, dt=dt)(x)
-            seed = root(_y, [1.00] * len(self.eqns)).x
+            seed = [t] + root(_y, [1.00] * len(self.eqns)).x
             soln.append(seed)
             t += dt
         return soln
