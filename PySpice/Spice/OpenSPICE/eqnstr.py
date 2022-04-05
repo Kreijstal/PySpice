@@ -96,6 +96,7 @@ class EqnStrTransientStrategy(EqnStrStrategy):
 def gen_eqns_top(parse_dict):
     # TODO need to support multiple test types?
     # TODO disable ic if uic arg is not provided to trans
+    # TODO wrap logic in a context type
     if   parse_dict["ctrl"][0]["test_type"] == "op_pt":
         return EqnStrOpPtStrategy().gen_eqns(parse_dict["branches"], parse_dict["nodes"])
     elif parse_dict["ctrl"][0]["test_type"] == "tran" :

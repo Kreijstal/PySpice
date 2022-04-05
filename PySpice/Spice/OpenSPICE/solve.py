@@ -32,13 +32,11 @@ class TransientSolverStrategy(SolverStrategy):
     def solve_eqns(self):
         # https://bugs.python.org/issue4831
         ldict = locals()
-        print(self.eqns)
         s = "y = lambda x , x_prev , t , dt : [" + ",".join(self.eqns) + "]"
         exec(s, globals(), ldict)
         y = ldict['y']
         soln = []
         seed = [0.00] * len(self.eqns)
-        print(self.eqns)
         t = float(self.ctrl["tstart"])
         dt = float(self.ctrl["tstep"])
         tstop = float(self.ctrl["tstop"])

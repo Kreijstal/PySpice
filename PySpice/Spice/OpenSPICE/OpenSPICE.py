@@ -11,11 +11,9 @@ def run(input_fname, output_fname):
     pdata = parse(file_txt)
     eqns = gen_eqns_top(pdata)
     # TODO Support multiple test types?
-    # TODO Wrap this logic in a context object
     if pdata["ctrl"][0]["test_type"] == "tran":
         strat = TransientSolverStrategy(eqns, pdata["ctrl"][0])
     else:
-        assert pdata["ctrl"][0]["test_type"] == "op_pt"
         strat = OpPtSolverStrategy(eqns)
     soln = strat.solve_eqns()
     gen_out_txt(output_fname, pdata["title"], pdata["ctrl"][0]["test_type"], soln, pdata["nodes"])

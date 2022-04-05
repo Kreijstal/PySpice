@@ -338,10 +338,11 @@ def oom(x):
                 'G' : 1e9,  'M' : 1e6,  'k' : 1e3,  'h' : 1e2,  'da': 1e1,
                 'd' : 1e-1, 'c' : 1e-2, 'm' : 1e-3, 'u' : 1e-6, 'n' : 1e-9,
                 'p' : 1e-12,'f' : 1e-15,'a' : 1e-18,'z' : 1e-21,'y' : 1e-24}
+    return prefixes[x]
 
 def unit_parse(x):
-    groups = search(r'(\d+\.*\d*)([a-zA-Z])?[a-zA-z]*', x).groups()
-    return float(groups[0]) * 1.00 if groups[1] else oom(groups[1])
+    groups = search(r'(\d+\.*\d*)([a-zA-Z])?([a-zA-z])*', x).groups()
+    return float(groups[0]) * 1.00 if not groups[1] or not groups[2] else float(groups[0]) * oom(groups[1])
 
 #######################################################################################
 
