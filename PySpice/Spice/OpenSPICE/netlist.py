@@ -16,9 +16,12 @@ DEFAULT_TITLE = "My Circuit"
 
 # Top-Level Netlist Rules #
 
+# TODO shouldn't have newline rule, use separator instead: https://textx.github.io/Arpeggio/2.0/configuration/
 def netlist():
-    return Optional(RegExMatch(".title"), title), ZeroOrMore(ZeroOrMore(newline),
-           [options, branch, ctrl, op_pt, tran], ZeroOrMore(newline)), Optional(end)
+    return Optional(RegExMatch(".title"), title), OneOrMore(newline), \
+           OneOrMore([branch], sep='\n'), OneOrMore(newline), \
+           OneOrMore(options, sep='\n'), OneOrMore(newline), \
+           [ctrl, tran, op_pt], OneOrMore(newline), end
 
 def branch():
     # TODO: Enable behavisource and behavvsource
@@ -26,8 +29,7 @@ def branch():
             vccssource, vcvssource, ccvssource, cccssource, behavisource, behavvsource]
 
 def ctrl():
-    return [(control, ZeroOrMore(newline), [op_pt, tran], ZeroOrMore(newline), end),
-            (ZeroOrMore(newline), [op_pt, tran], ZeroOrMore(newline))]
+    return control, ZeroOrMore(newline), [op_pt, tran], ZeroOrMore(newline), end
 
 #######################################################################################
 
@@ -101,11 +103,11 @@ class InductorTextFmt(TextFmt):
         return unit_parse(self.value)
 
 class VSourceTextFmt(TextFmt):
-    def __init__(self, value, srctype="const"):
+    def __init__(self, value, srctype="passiveValue"):
         self.value   = value
         self.srctype = srctype
     def gen_txt_str(self, nodes):
-        if self.srctype == "const":
+        if self.srctype == "passiveValue":
             return unit_parse(self.value)
         elif self.srctype == "pulse":
             # TODO: Include pulse sources with optional
@@ -245,7 +247,7 @@ def node():
     return RegExMatch(r'[a-zA-Z0-9_]+')
 
 def passiveValue():
-    return RegExMatch(r'[a-zA-Z0-9_]+')
+    return RegExMatch(r'[a-zA-Z0-9_\.]+')
 
 def stateVarValue():
     return RegExMatch(r'\d+')
@@ -322,7 +324,7 @@ def behavsrccomponent():
 
 def title():
     # https://stackoverflow.com/questions/336210/regular-expression-for-alphanumeric-and-underscores
-    return RegExMatch("[a-zA-Z0-9_]*")
+    return RegExMatch("[a-zA-Z0-9_' ]*")
 
 #######################################################################################
 
@@ -354,19 +356,40 @@ class Netlist:
 
 
 def filter_terms(ptree):
-    return [_ for _ in ptree if type(_) != Terminal]
+    return [_ for _ in ptree if _.value != "\n"]
+
+# TODO: should we use explicit == as opposed to in?
+def nonterm_is_tran(nonterm):
+    return (type(nonterm) == NonTerminal) and ("tran" in nonterm.name)
 
 def nonterm_is_branch(nonterm):
-    assert type(nonterm) == NonTerminal
-    return "branch" in nonterm.name
+    return (type(nonterm) == NonTerminal) and ("branch" in nonterm.name)
 
 def nonterm_is_ctrl(nonterm):
-    assert type(nonterm) == NonTerminal
-    return "ctrl" in nonterm.name
+    return (type(nonterm) == NonTerminal) and ("ctrl" in nonterm.name)
 
 def nonterm_is_title(nonterm):
-    assert type(nonterm) == NonTerminal
-    return "title" in nonterm.name
+    return (type(nonterm) == NonTerminal) and ("title" in nonterm.name)
+
+def gen_dict_from_tran_node(tran_node):
+    assert nonterm_is_tran(tran_node)
+    tran_node_rule_names = [n.rule_name for n in tran_node]
+    tran_d = {"test_type" : "tran",
+              "tstep"     : unit_parse(tran_node[1].value),
+              "tstop"     : unit_parse(tran_node[2].value)}
+    if "tstart" in tran_node_rule_names:
+        tran_d["tstart"] = unit_parse(tran_node[3].value)
+        if "tmax" in tran_node_rule_names:
+            tran_d["tmax"] = unit_parse(tran_node[4].value)
+            if "uic" in tran_node_rule_names:
+                tran_d["uic"] = tran_node[5].value
+        else:
+            if "uic" in tran_node_rule_names:
+                tran_d["uic"] = tran_node[4].value
+    else:
+        if "uic" in tran_node_rule_names:
+            tran_d["uic"] = tran_node[3].value
+    return tran_d
 
 def gen_dict_from_ctrl(nonterm):
     assert nonterm_is_ctrl(nonterm)
@@ -374,24 +397,7 @@ def gen_dict_from_ctrl(nonterm):
     if "op_pt" in rule_names:
         return {"test_type" : "op_pt"}
     elif "tran" in rule_names:
-        tran_node = nonterm[rule_names.index("tran")]
-        tran_node_rule_names = [n.rule_name for n in tran_node]
-        tran_d = {"test_type" : "tran",
-                  "tstep"     : unit_parse(tran_node[1].value),
-                  "tstop"     : unit_parse(tran_node[2].value)}
-        if "tstart" in tran_node_rule_names:
-            tran_d["tstart"] = unit_parse(tran_node[3].value)
-            if "tmax" in tran_node_rule_names:
-                tran_d["tmax"] = unit_parse(tran_node[4].value)
-                if "uic" in tran_node_rule_names:
-                    tran_d["uic"] = tran_node[5].value
-            else:
-                if "uic" in tran_node_rule_names:
-                    tran_d["uic"] = tran_node[4].value
-        else:
-            if "uic" in tran_node_rule_names:
-                tran_d["uic"] = tran_node[3].value
-        return tran_d
+        return gen_dict_from_tran_node(nonterm[rule_names.index("tran")])
     else:
         assert False
 
@@ -501,6 +507,12 @@ def gen_data_dicts(ptree):
     nodes.remove("0")
     [_.update({"value" : _["value"].gen_txt_str(nodes)}) for _ in branches]
     ctrl     = [gen_dict_from_ctrl(_) for _ in ptree if nonterm_is_ctrl(_)]
+    if len(ctrl) == 0:
+        # TODO: need a cleaner way of dealing with ctrl statements
+        ctrl  = [{"test_type" : "op_pt"}    for _ in ptree if _.value == ".op"]
+        ctrl += [gen_dict_from_tran_node(_) for _ in ptree if _.value == ".tran"]
+        # TODO support multiple test types?
+        assert len(ctrl) == 1
     titles   = [_.value for _ in ptree if nonterm_is_title(_)]
     assert len(titles) == 1 or len(titles) == 0
     if len(titles) == 0:
@@ -508,8 +520,7 @@ def gen_data_dicts(ptree):
     return {"branches" : branches, "nodes" : nodes, "ctrl" : ctrl, "title" : titles[0]}
 
 def parse(txt):
-    print(txt)
-    parser = ParserPython(netlist, ws='\t\r ', debug=True)
+    parser = ParserPython(netlist, ws='\t\r ')
     return gen_data_dicts(filter_terms(parser.parse(txt)))
 
 #######################################################################################

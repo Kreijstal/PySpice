@@ -19,4 +19,3 @@ def gen_out_txt(raw_fname, title, test_type, soln, sorted_nodes):
         spice_raw_file.write(spice_raw_file_txt)
     with open(raw_fname, "ab") as spice_raw_file:
         [spice_raw_file.write(array('d', s).tobytes()) for s in soln]
-    print(spice_raw_file_txt)
