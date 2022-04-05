@@ -10,7 +10,12 @@ from re import search
 
 # Constants
 
-DEFAULT_TITLE = "My Circuit"
+DEFAULT_TITLE   = "My Circuit"
+SI_PREFIXES     = {'Y' : 1e24, 'Z' : 1e21, 'E' : 1e18, 'P' : 1e15, 'T' : 1e12,
+                   'G' : 1e9,  'M' : 1e6,  'k' : 1e3,  'h' : 1e2,  'da': 1e1,
+                   'd' : 1e-1, 'c' : 1e-2, 'm' : 1e-3, 'u' : 1e-6, 'n' : 1e-9,
+                   'p' : 1e-12,'f' : 1e-15,'a' : 1e-18,'z' : 1e-21,'y' : 1e-24}
+SI_PREFIX_REGEX = "[" + "|".join(SI_PREFIXES.keys()) + "]"
 
 #######################################################################################
 
@@ -334,14 +339,11 @@ def title():
 def oom(x):
     assert len(x) == 1
     # https://en.wikipedia.org/wiki/Metric_prefix
-    prefixes = {'Y' : 1e24, 'Z' : 1e21, 'E' : 1e18, 'P' : 1e15, 'T' : 1e12,
-                'G' : 1e9,  'M' : 1e6,  'k' : 1e3,  'h' : 1e2,  'da': 1e1,
-                'd' : 1e-1, 'c' : 1e-2, 'm' : 1e-3, 'u' : 1e-6, 'n' : 1e-9,
-                'p' : 1e-12,'f' : 1e-15,'a' : 1e-18,'z' : 1e-21,'y' : 1e-24}
-    return prefixes[x]
+    return SI_PREFIXES[x]
 
 def unit_parse(x):
-    groups = search(r'(\d+\.*\d*)([a-zA-Z])?([a-zA-z])*', x).groups()
+    # TODO can this be formally verified?
+    groups = search(r'(\d+\.*\d*)({})?([a-zA-z])*'.format(SI_PREFIX_REGEX), x).groups()
     return float(groups[0]) * 1.00 if not groups[1] or not groups[2] else float(groups[0]) * oom(groups[1])
 
 #######################################################################################
