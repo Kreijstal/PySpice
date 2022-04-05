@@ -324,6 +324,7 @@ def behavsrccomponent():
 
 def title():
     # https://stackoverflow.com/questions/336210/regular-expression-for-alphanumeric-and-underscores
+    # TODO include accented characters, like in Thevenin
     return RegExMatch("[a-zA-Z0-9_' ]*")
 
 #######################################################################################
@@ -510,7 +511,7 @@ def gen_data_dicts(ptree):
     if len(ctrl) == 0:
         # TODO: need a cleaner way of dealing with ctrl statements
         ctrl  = [{"test_type" : "op_pt"}    for _ in ptree if _.value == ".op"]
-        ctrl += [gen_dict_from_tran_node(_) for _ in ptree if _.value == ".tran"]
+        ctrl += [gen_dict_from_tran_node(_) for _ in ptree if ".tran" in _.value]
         # TODO support multiple test types?
         assert len(ctrl) == 1
     titles   = [_.value for _ in ptree if nonterm_is_title(_)]
