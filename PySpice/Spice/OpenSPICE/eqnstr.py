@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-from components import Resistor, Capacitor, Inductor, VSource, ISource
+from .components import Resistor, Capacitor, Inductor, VSource, ISource
 from abc import ABC, abstractmethod
-from common import v_format, i_format, dv_format, di_format
+from .common import v_format, i_format, dv_format, di_format
 
 #################################################################
 

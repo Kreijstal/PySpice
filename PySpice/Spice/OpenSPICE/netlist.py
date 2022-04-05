@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
 from arpeggio import ZeroOrMore, EOF, Optional, OneOrMore, RegExMatch, ParserPython, Terminal, NonTerminal
-from components import Resistor, Capacitor, Inductor, VSource, ISource
-from common import v_format, i_format
+from .components import Resistor, Capacitor, Inductor, VSource, ISource
+from .common import v_format, i_format
 from abc import ABC, abstractmethod
+from re import search
 
 #######################################################################################
 
@@ -16,7 +17,8 @@ DEFAULT_TITLE = "My Circuit"
 # Top-Level Netlist Rules #
 
 def netlist():
-    return Optional(RegExMatch(".title"), title), ZeroOrMore(branch, OneOrMore(newline)), Optional([branch, ctrl])
+    return Optional(RegExMatch(".title"), title), ZeroOrMore(ZeroOrMore(newline),
+           [options, branch, ctrl, op_pt, tran], ZeroOrMore(newline)), Optional(end)
 
 def branch():
     # TODO: Enable behavisource and behavvsource
@@ -24,7 +26,8 @@ def branch():
             vccssource, vcvssource, ccvssource, cccssource, behavisource, behavvsource]
 
 def ctrl():
-    return control, OneOrMore(newline), [op_pt, tran], OneOrMore(newline), end
+    return [(control, ZeroOrMore(newline), [op_pt, tran], ZeroOrMore(newline), end),
+            (ZeroOrMore(newline), [op_pt, tran], ZeroOrMore(newline))]
 
 #######################################################################################
 
@@ -57,8 +60,18 @@ def uic():
 def end():
     return RegExMatch(".end")
 
+def options():
+    # TODO - paste link from below
+    return RegExMatch(".options"), RegExMatch(r'[a-zA-Z0-9_]*'), RegExMatch("="), [_float(), _int()]
+
 def _float():
-    return RegExMatch(r'[+-]?([0-9]+([.][0-9]*)?|[.][0-9]+)')
+    # Need to account for units, which are parsed later
+    # https://stackoverflow.com/questions/336210/regular-expression-for-alphanumeric-and-underscores
+    return RegExMatch("[a-zA-Z0-9_.]*")
+
+def _int():
+    # https://stackoverflow.com/questions/9043551/regex-that-matches-integers-in-between-whitespace-or-start-end-of-string-only
+    return RegExMatch(r'\d+')
 
 #######################################################################################
 
@@ -73,31 +86,65 @@ class ResistorTextFmt(TextFmt):
     def __init__(self, value):
         self.value = value
     def gen_txt_str(self, nodes):
-        return self.value
+        return unit_parse(self.value)
 
 class CapacitorTextFmt(TextFmt):
     def __init__(self, value):
         self.value = value
     def gen_txt_str(self, nodes):
-        return self.value
+        return unit_parse(self.value)
 
 class InductorTextFmt(TextFmt):
     def __init__(self, value):
         self.value = value
     def gen_txt_str(self, nodes):
-        return self.value
+        return unit_parse(self.value)
 
 class VSourceTextFmt(TextFmt):
-    def __init__(self, value):
-        self.value = value
+    def __init__(self, value, srctype="const"):
+        self.value   = value
+        self.srctype = srctype
     def gen_txt_str(self, nodes):
-        return self.value
+        if self.srctype == "const":
+            return unit_parse(self.value)
+        elif self.srctype == "pulse":
+            # TODO: Include pulse sources with optional
+            # parameters. Need to source defaults from
+            # ctrl dict
+            valarr = self.value.split("|")
+            assert len(valarr) >= 9
+            assert len(valarr) <= 10
+            _v1    = unit_parse(valarr[1])
+            _v2    = unit_parse(valarr[2])
+            _td    = unit_parse(valarr[3])
+            _tr    = unit_parse(valarr[4])
+            _tf    = unit_parse(valarr[5])
+            _pw    = unit_parse(valarr[6])
+            _per   = unit_parse(valarr[7])
+            _phase = 0.0 if len(valarr) == 9 else unit_parse(valarr[8])
+            cond0 = "t<=(({}))".format(_td)
+            cond1 = "(({}))<t<=((({}))+(({})))".format(_td, _td, _tr)
+            cond2 = "((({}))+(({})))<t<=((({}))+(({}))+(({})))".format(_td, _tr, _td, _tr, _pw)
+            cond3 = "((({}))+(({}))+(({})))<t<=((({}))+(({}))+(({}))+(({})))".format(
+                _td, _tr, _pw, _td, _tr, _pw, _tf)
+            cond4 = "((({}))+(({}))+(({}))+(({})))<t".format(_td, _tr, _pw, _tf)
+            state0 = "(({}))".format(_v1)
+            state1 = "((((({}))-(({})))*t)+(((({}))+(({})))*(({})))-((({}))*(({}))))/(({}))".format(
+                _v2, _v1, _tr, _td, _v1, _td, _v2, _tr) if _tr != 0.0 else "0"
+            state2 = "(({}))".format(_v2)
+            state3 = "((((({}))-(({})))*t)+((({}))*(({})))-(((({}))-(({})))*((({}))+(({}))+(({})))))/(({}))".format(
+                _v1, _v2, _v2, _tf, _v1, _v2, _td, _tr, _pw, _tf) if _tf != 0.0 else "0"
+            state4 = "(({}))".format(_v1)
+            return "(({})*({}))+(({})*({}))+(({})*({}))+(({})*({}))+(({})*({}))".format(
+                cond0, state0, cond1, state1, cond2, state2, cond3, state3, cond4, state4)
+        else:
+            assert False
 
 class ISourceTextFmt(TextFmt):
     def __init__(self, value):
         self.value = value
     def gen_txt_str(self, nodes):
-        return self.value
+        return unit_parse(self.value)
 
 class ExtVSourceTextFmt(TextFmt):
     def __init__(self):
@@ -161,16 +208,16 @@ def resistor():
     return rcomponent, node, node, passiveValue
 
 def vsource():
-    return vcomponent, node, node, passiveValue
+    return vcomponent, node, node, Optional(dc, _float), [pulse, passiveValue]
 
 def isource():
     return icomponent, node, node, passiveValue
 
 def extvsource():
-    return vcomponent, node, node, dc, zero, external
+    return vcomponent, node, node, dc, _float, external
 
 def extisource():
-    return icomponent, node, node, dc, zero, external
+    return icomponent, node, node, dc, _float, external
 
 def vccssource():
     return vccscomponent, node, node, node, node, passiveValue
@@ -195,10 +242,10 @@ def behavvsource():
 # Generic Branch Rules #
 
 def node():
-    return RegExMatch(r'\d+')
+    return RegExMatch(r'[a-zA-Z0-9_]+')
 
 def passiveValue():
-    return RegExMatch(r'\d+')
+    return RegExMatch(r'[a-zA-Z0-9_]+')
 
 def stateVarValue():
     return RegExMatch(r'\d+')
@@ -210,10 +257,7 @@ def ic():
     return RegExMatch(r'ic='), stateVarValue
 
 def dc():
-    return RegExMatch(r'dc')
-
-def zero():
-    return RegExMatch(r'0')
+    return RegExMatch(r'dc|DC')
 
 def external():
     return RegExMatch(r'external')
@@ -230,37 +274,46 @@ def behavexpr():
 
 #######################################################################################
 
+# VSource Rules #
+
+def pulse():
+    return RegExMatch("PULSE\("), _float(), _float(), Optional(_float()), \
+           Optional(_float()), Optional(_float()), Optional(_float()), \
+           Optional(_float()), Optional(_float()), RegExMatch("\)")
+
+#######################################################################################
+
 # Component Identifier Rules #
 
 def ccomponent():
-    return RegExMatch(r'C\d+')
+    return RegExMatch(r'C[a-zA-Z0-9_]*')
 
 def rcomponent():
-    return RegExMatch(r'R\d+')
+    return RegExMatch(r'R[a-zA-Z0-9_]*')
 
 def lcomponent():
-    return RegExMatch(r'L\d+')
+    return RegExMatch(r'L[a-zA-Z0-9_]*')
 
 def vcomponent():
-    return RegExMatch(r'V\d+')
+    return RegExMatch(r'V[a-zA-Z0-9_]*')
 
 def icomponent():
-    return RegExMatch(r'I\d+')
+    return RegExMatch(r'I[a-zA-Z0-9_]*')
 
 def vccscomponent():
-    return RegExMatch(r'G\d+')
+    return RegExMatch(r'G[a-zA-Z0-9_]*')
 
 def vcvscomponent():
-    return RegExMatch(r'E\d+')
+    return RegExMatch(r'E[a-zA-Z0-9_]*')
 
 def ccvscomponent():
-    return RegExMatch(r'H\d+')
+    return RegExMatch(r'H[a-zA-Z0-9_]*')
 
 def cccscomponent():
-    return RegExMatch(r'F\d+')
+    return RegExMatch(r'F[a-zA-Z0-9_]*')
 
 def behavsrccomponent():
-    return RegExMatch(r'B\d+')
+    return RegExMatch(r'B[a-zA-Z0-9_]*')
 
 
 #######################################################################################
@@ -269,7 +322,23 @@ def behavsrccomponent():
 
 def title():
     # https://stackoverflow.com/questions/336210/regular-expression-for-alphanumeric-and-underscores
-    return RegExMatch("^[a-zA-Z0-9_]*$")
+    return RegExMatch("[a-zA-Z0-9_]*")
+
+#######################################################################################
+
+# Unit Parsing
+
+def oom(x):
+    assert len(x) == 1
+    # https://en.wikipedia.org/wiki/Metric_prefix
+    prefixes = {'Y' : 1e24, 'Z' : 1e21, 'E' : 1e18, 'P' : 1e15, 'T' : 1e12,
+                'G' : 1e9,  'M' : 1e6,  'k' : 1e3,  'h' : 1e2,  'da': 1e1,
+                'd' : 1e-1, 'c' : 1e-2, 'm' : 1e-3, 'u' : 1e-6, 'n' : 1e-9,
+                'p' : 1e-12,'f' : 1e-15,'a' : 1e-18,'z' : 1e-21,'y' : 1e-24}
+
+def unit_parse(x):
+    groups = search(r'(\d+\.*\d*)([a-zA-Z])?[a-zA-z]*', x).groups()
+    return float(groups[0]) * 1.00 if groups[1] else oom(groups[1])
 
 #######################################################################################
 
@@ -308,12 +377,12 @@ def gen_dict_from_ctrl(nonterm):
         tran_node = nonterm[rule_names.index("tran")]
         tran_node_rule_names = [n.rule_name for n in tran_node]
         tran_d = {"test_type" : "tran",
-                  "tstep"     : tran_node[1].value,
-                  "tstop"     : tran_node[2].value}
+                  "tstep"     : unit_parse(tran_node[1].value),
+                  "tstop"     : unit_parse(tran_node[2].value)}
         if "tstart" in tran_node_rule_names:
-            tran_d["tstart"] = tran_node[3].value
+            tran_d["tstart"] = unit_parse(tran_node[3].value)
             if "tmax" in tran_node_rule_names:
-                tran_d["tmax"] = tran_node[4].value
+                tran_d["tmax"] = unit_parse(tran_node[4].value)
                 if "uic" in tran_node_rule_names:
                     tran_d["uic"] = tran_node[5].value
             else:
@@ -356,11 +425,13 @@ def gen_dict_from_branch(nonterm, branch_idx):
             _ind["ic"] = nonterm[0][4][1].value
         return _ind
     elif nonterm[0].rule_name == "vsource":
-        assert len(nonterm[0]) == 4
+        assert len(nonterm[0]) == 4 or len(nonterm[0]) == 6
+        vsrcvalidx = 3 if len(nonterm[0]) == 4 else 5
         return {"component"  : VSource,
                 "node_plus"  : nonterm[0][1].value,
                 "node_minus" : nonterm[0][2].value,
-                "value"      : VSourceTextFmt(nonterm[0][3].value),
+                "value"      : VSourceTextFmt(nonterm[0][vsrcvalidx].value,
+                                      srctype=nonterm[0][vsrcvalidx].rule_name),
                 "branch_idx" : branch_idx}
     elif nonterm[0].rule_name == "isource":
         assert len(nonterm[0]) == 4
@@ -437,7 +508,8 @@ def gen_data_dicts(ptree):
     return {"branches" : branches, "nodes" : nodes, "ctrl" : ctrl, "title" : titles[0]}
 
 def parse(txt):
-    parser = ParserPython(netlist, ws='\t\r ')
+    print(txt)
+    parser = ParserPython(netlist, ws='\t\r ', debug=True)
     return gen_data_dicts(filter_terms(parser.parse(txt)))
 
 #######################################################################################

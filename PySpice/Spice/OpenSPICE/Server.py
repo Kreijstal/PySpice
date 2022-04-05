@@ -31,7 +31,7 @@ import shutil
 import subprocess
 import tempfile
 # TODO: Change
-from .OpenSPICE import _spice_input
+from .OpenSPICE import run
 
 from PySpice.Config import ConfigInstall
 from .RawFile import RawFile
@@ -114,7 +114,7 @@ class OpenSPICEServer:
         with open(input_filename, 'w') as f:
             f.write(str(spice_input))
 
-        _spice_input(input_filename, output_filename)
+        run(input_filename, output_filename)
 
         with open(output_filename, 'rb') as f:
             output = f.read()
