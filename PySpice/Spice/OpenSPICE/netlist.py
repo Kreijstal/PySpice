@@ -69,12 +69,12 @@ def end():
 
 def options():
     # TODO - paste link from below
-    return RegExMatch(".options"), RegExMatch(r'[a-zA-Z0-9_]*'), RegExMatch("="), [_float(), _int()]
+    return RegExMatch(".options"), RegExMatch('.*$')
 
 def _float():
     # Need to account for units, which are parsed later
     # https://stackoverflow.com/questions/336210/regular-expression-for-alphanumeric-and-underscores
-    return RegExMatch("[a-zA-Z0-9_.]*")
+    return RegExMatch("[0-9][a-zA-Z0-9_\.]*")
 
 def _int():
     # https://stackoverflow.com/questions/9043551/regex-that-matches-integers-in-between-whitespace-or-start-end-of-string-only
@@ -157,13 +157,13 @@ class ExtVSourceTextFmt(TextFmt):
     def __init__(self):
         pass
     def gen_txt_str(self, nodes):
-        return "(get_vsrc())"
+        return "(get_vsrc(t))"
 
 class ExtISourceTextFmt(TextFmt):
-    def __init__(self, value):
+    def __init__(self):
         pass
     def gen_txt_str(self, nodes):
-        return "(get_isrc())"
+        return "(get_isrc(t))"
 
 class VCCSSourceTextFmt(TextFmt):
     def __init__(self, value, node_plus, node_minus):
@@ -200,6 +200,26 @@ class CCCSSourceTextFmt(TextFmt):
     def gen_txt_str(self, nodes):
         return "(({})*(({})-({})))".format(self.value, i_format(self.branch_plus,  nodes),
                                                        i_format(self.branch_minus, nodes))
+
+class BehavISourceTextFmt(TextFmt):
+    def __init__(self, value):
+        self.value = value
+    def gen_txt_str(self, nodes):
+        val = self.value
+        for n in nodes:
+            val = val.replace('v({})'.format(n), v_format(n, nodes))
+        # TODO does ngspice support i(*) notation? I don't think so.
+        return "({})".format(val)
+
+class BehavVSourceTextFmt(TextFmt):
+    def __init__(self, value):
+        self.value = value
+    def gen_txt_str(self, nodes):
+        val = self.value
+        for n in nodes:
+            val = val.replace('v({})'.format(n), v_format(n, nodes))
+        # TODO does ngspice support i(*) notation? I don't think so.
+        return "({})".format(val)
 
 #######################################################################################
 
@@ -252,10 +272,12 @@ def node():
     return RegExMatch(r'[a-zA-Z0-9_]+')
 
 def passiveValue():
-    return RegExMatch(r'[a-zA-Z0-9_\.]+')
+    return RegExMatch(r'[0-9\.][a-zA-Z0-9_\.]*')
 
 def stateVarValue():
-    return RegExMatch(r'\d+')
+    # Need to account for units, which are parsed later
+    # https://stackoverflow.com/questions/336210/regular-expression-for-alphanumeric-and-underscores
+    return RegExMatch("[a-zA-Z0-9_\.]*")
 
 def newline():
     return RegExMatch(r'\n')
@@ -277,7 +299,7 @@ def vequalsbehav():
 
 def behavexpr():
     # TODO
-    return RegExMatch('')
+    return RegExMatch('.*$')
 
 #######################################################################################
 
@@ -422,7 +444,7 @@ def gen_dict_from_branch(nonterm, branch_idx):
                 "value"      : CapacitorTextFmt(nonterm[0][3].value),
                 "branch_idx" : branch_idx}
         if len(nonterm[0]) == 5:
-            _cap["ic"] = nonterm[0][4][1].value
+            _cap["ic"] = unit_parse(nonterm[0][4][1].value)
         return _cap
     elif nonterm[0].rule_name == "inductor":
         assert len(nonterm[0]) == 4 or len(nonterm[0]) == 5
@@ -432,7 +454,7 @@ def gen_dict_from_branch(nonterm, branch_idx):
                 "value"      : InductorTextFmt(nonterm[0][3].value),
                 "branch_idx" : branch_idx}
         if len(nonterm[0]) == 5:
-            _ind["ic"] = nonterm[0][4][1].value
+            _ind["ic"] = unit_parse(nonterm[0][4][1].value)
         return _ind
     elif nonterm[0].rule_name == "vsource":
         assert len(nonterm[0]) == 4 or len(nonterm[0]) == 6
@@ -499,6 +521,20 @@ def gen_dict_from_branch(nonterm, branch_idx):
                 "value"      : CCCSSourceTextFmt(nonterm[0][5].value,
                                                  nonterm[0][3].value,
                                                  nonterm[0][4].value),
+                "branch_idx" : branch_idx}
+    elif nonterm[0].rule_name == "behavisource":
+        assert len(nonterm[0]) == 4
+        return {"component"  : ISource,
+                "node_plus"  : nonterm[0][1].value,
+                "node_minus" : nonterm[0][2].value,
+                "value"      : BehavISourceTextFmt(nonterm[0][3][1].value),
+                "branch_idx" : branch_idx}
+    elif nonterm[0].rule_name == "behavvsource":
+        assert len(nonterm[0]) == 4
+        return {"component"  : VSource,
+                "node_plus"  : nonterm[0][1].value,
+                "node_minus" : nonterm[0][2].value,
+                "value"      : BehavVSourceTextFmt(nonterm[0][3][1].value),
                 "branch_idx" : branch_idx}
     else:
         assert False

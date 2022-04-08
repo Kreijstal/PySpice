@@ -20,9 +20,17 @@ class EqnStrStrategy(ABC):
             if b["node_plus"] != "0":
                 # TODO: Why does this syntax not work?
                 # kcl_dict[b["node_plus"]].append("-({})".format(i_format(b["branch_idx"],  nodes)))
-                kcl_dict[b["node_plus"]] = kcl_dict[b["node_plus"]] + ["-({})".format(i_format(b["branch_idx"],  nodes))]
+                l_plus  = len(kcl_dict[b["node_plus"]])
+                other_l = [len(kcl_dict[n]) for n in kcl_dict.keys() if n != b["node_plus"]]
+                kcl_dict[b["node_plus"]]  = kcl_dict[b["node_plus"]]  + ["-({})".format(i_format(b["branch_idx"],  nodes))]
+                assert len(kcl_dict[b["node_plus"]])  == l_plus  + 1
+                assert [len(kcl_dict[n]) for n in kcl_dict.keys() if n != b["node_plus"]] == other_l
             if b["node_minus"] != "0":
-                kcl_dict[b["node_minus"]].append("+({})".format(i_format(b["branch_idx"], nodes)))
+                l_minus = len(kcl_dict[b["node_minus"]])
+                other_l = [len(kcl_dict[n]) for n in kcl_dict.keys() if n != b["node_minus"]]
+                kcl_dict[b["node_minus"]] = kcl_dict[b["node_minus"]] + ["+({})".format(i_format(b["branch_idx"],  nodes))]
+                assert len(kcl_dict[b["node_minus"]]) == l_minus + 1
+                assert [len(kcl_dict[n]) for n in kcl_dict.keys() if n != b["node_minus"]] == other_l
         return ["".join(v) for v in kcl_dict.values()]
 
 #################################################################
@@ -64,9 +72,10 @@ class EqnStrTransientStrategy(EqnStrStrategy):
                                                              _b["value"])
         elif _b["component"] == Capacitor:
             if "ic" in _b.keys():
-                prefix = "((({})-({}))-({})) if t == 0 else ".format(v_format(_b["node_plus"], _n, trans=True),
-                                                                     v_format(_b["node_minus"], _n, trans=True),
-                                                                              _b["ic"])
+                # TODO: modify to support nonzero start times
+                prefix = "((({})-({}))-({})) if t == 0.00 else ".format(v_format(_b["node_plus"], _n, trans=True),
+                                                                        v_format(_b["node_minus"], _n, trans=True),
+                                                                                 _b["ic"])
             else:
                 prefix = ""
             return prefix + "((({})*dt)-(({})*(({})-({}))))".format(i_format(_b["branch_idx"],  _n, trans=True),
@@ -75,8 +84,9 @@ class EqnStrTransientStrategy(EqnStrStrategy):
                                                                    dv_format(_b["node_minus"], _n))
         elif _b["component"] == Inductor:
             if "ic" in _b.keys():
-                prefix = "(({})-({})) if t == 0 else ".format(i_format(_b["branch_idx"], _n, trans=True),
-                                                                       _b["ic"])
+                # TODO: modify to support nonzero start times
+                prefix = "(({})-({})) if t == 0.00 else ".format(i_format(_b["branch_idx"], _n, trans=True),
+                                                                          _b["ic"])
             else:
                 prefix = ""
             return prefix + "(((({})-({}))*dt)-(({})*(({}))))".format(v_format(_b["node_plus"],   _n, trans=True),

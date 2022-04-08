@@ -12,9 +12,9 @@ def run(input_fname, output_fname):
     eqns = gen_eqns_top(pdata)
     # TODO Support multiple test types?
     if pdata["ctrl"][0]["test_type"] == "tran":
-        strat = TransientSolverStrategy(eqns, pdata["ctrl"][0])
+        strat = TransientSolverStrategy(eqns, pdata["ctrl"][0], pdata["nodes"])
     else:
-        strat = OpPtSolverStrategy(eqns)
+        strat = OpPtSolverStrategy(eqns, pdata["nodes"])
     soln = strat.solve_eqns()
     gen_out_txt(output_fname, pdata["title"], pdata["ctrl"][0]["test_type"], soln, pdata["nodes"])
 
