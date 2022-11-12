@@ -2,7 +2,7 @@
 
 from .components import Resistor, Capacitor, Inductor, VSource, ISource
 from abc import ABC, abstractmethod
-from .common import v_format, i_format, dv_format, di_format
+from .common import i_format
 
 #################################################################
 
@@ -41,67 +41,13 @@ class EqnStrOpPtStrategy(EqnStrStrategy):
     def __init__(self):
         pass
     def gen_eqn_from_branch(self, _b, _n):
-        if   _b["component"] == Resistor:
-            return "(({})-({}))-(({})*({}))".format(v_format(_b["node_plus"],  _n),
-                                                    v_format(_b["node_minus"], _n),
-                                                    i_format(_b["branch_idx"], _n),
-                                                             _b["value"])
-        elif _b["component"] == Capacitor:
-            return "(({})-({}))".format(i_format(_b["branch_idx"], _n), 0.00)
-        elif _b["component"] == Inductor:
-            return "((({})-({}))-({}))".format(v_format(_b["node_plus"],  _n),
-                                               v_format(_b["node_minus"], _n), 0.00)
-        elif _b["component"] == VSource:
-            return "((({})-({}))-({}))".format(v_format(_b["node_plus"],  _n),
-                                               v_format(_b["node_minus"], _n),
-                                                        _b["value"])
-        elif _b["component"] == ISource:
-            return "(({})-({}))".format(i_format(_b["branch_idx"], _n),
-                                                 _b["value"])
-        else:
-            assert False
+        return _b["component"].op_pt_eqn(_b, _n)
 
 class EqnStrTransientStrategy(EqnStrStrategy):
     def __init__(self):
         pass
     def gen_eqn_from_branch(self, _b, _n):
-        if   _b["component"] == Resistor:
-            return "(({})-({}))-(({})*({}))".format(v_format(_b["node_plus"],  _n, trans=True),
-                                                    v_format(_b["node_minus"], _n, trans=True),
-                                                    i_format(_b["branch_idx"], _n, trans=True),
-                                                             _b["value"])
-        elif _b["component"] == Capacitor:
-            if "ic" in _b.keys():
-                # TODO: modify to support nonzero start times
-                prefix = "((({})-({}))-({})) if t == 0.00 else ".format(v_format(_b["node_plus"], _n, trans=True),
-                                                                        v_format(_b["node_minus"], _n, trans=True),
-                                                                                 _b["ic"])
-            else:
-                prefix = ""
-            return prefix + "((({})*dt)-(({})*(({})-({}))))".format(i_format(_b["branch_idx"],  _n, trans=True),
-                                                                             _b["value"],
-                                                                   dv_format(_b["node_plus"],  _n),
-                                                                   dv_format(_b["node_minus"], _n))
-        elif _b["component"] == Inductor:
-            if "ic" in _b.keys():
-                # TODO: modify to support nonzero start times
-                prefix = "(({})-({})) if t == 0.00 else ".format(i_format(_b["branch_idx"], _n, trans=True),
-                                                                          _b["ic"])
-            else:
-                prefix = ""
-            return prefix + "(((({})-({}))*dt)-(({})*(({}))))".format(v_format(_b["node_plus"],   _n, trans=True),
-                                                                      v_format(_b["node_minus"],  _n, trans=True),
-                                                                               _b["value"],
-                                                                     di_format(_b["branch_idx"], _n))
-        elif _b["component"] == VSource:
-            return "((({})-({}))-({}))".format(v_format(_b["node_plus"],  _n, trans=True),
-                                               v_format(_b["node_minus"], _n, trans=True),
-                                                        _b["value"])
-        elif _b["component"] == ISource:
-            return "(({})-({}))".format(i_format(_b["branch_idx"], _n, trans=True),
-                                                 _b["value"])
-        else:
-            assert False
+        return _b["component"].trans_eqn(_b, _n)
 
 def gen_eqns_top(parse_dict):
     # TODO need to support multiple test types?
