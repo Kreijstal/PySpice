@@ -22,9 +22,9 @@ class Resistor(Component):
                                                          branch["value"])
     @staticmethod
     def trans_eqn(branch, node):
-        return "(({})-({}))-(({})*({}))".format(v_format(branch["node_plus"],  node, trans=True),
-                                                v_format(branch["node_minus"], node, trans=True),
-                                                i_format(branch["branch_idx"], node, trans=True),
+        return "(({})-({}))-(({})*({}))".format(v_format(branch["node_plus"],  node),
+                                                v_format(branch["node_minus"], node),
+                                                i_format(branch["branch_idx"], node),
                                                          branch["value"])
 
 class Capacitor:
@@ -35,12 +35,12 @@ class Capacitor:
     def trans_eqn(branch, node):
         if "ic" in branch.keys():
             # TODO: modify to support nonzero start times
-            prefix = "((({})-({}))-({})) if t == 0.00 else ".format(v_format(branch["node_plus"],  node, trans=True),
-                                                                    v_format(branch["node_minus"], node, trans=True),
+            prefix = "((({})-({}))-({})) if t == 0.00 else ".format(v_format(branch["node_plus"],  node),
+                                                                    v_format(branch["node_minus"], node),
                                                                              branch["ic"])
         else:
             prefix = ""
-        return prefix + "((({})*dt)-(({})*(({})-({}))))".format(i_format(branch["branch_idx"], node, trans=True),
+        return prefix + "((({})*dt)-(({})*(({})-({}))))".format(i_format(branch["branch_idx"], node),
                                                                          branch["value"],
                                                                dv_format(branch["node_plus"],  node),
                                                                dv_format(branch["node_minus"], node))
@@ -54,12 +54,12 @@ class Inductor:
     def trans_eqn(branch, node):
         if "ic" in _b.keys():
             # TODO: modify to support nonzero start times
-            prefix = "(({})-({})) if t == 0.00 else ".format(i_format(branch["branch_idx"], node, trans=True),
+            prefix = "(({})-({})) if t == 0.00 else ".format(i_format(branch["branch_idx"], node),
                                                                       branch["ic"])
         else:
             prefix = ""
-        return prefix + "(((({})-({}))*dt)-(({})*(({}))))".format(v_format(branch["node_plus"],  node, trans=True),
-                                                                  v_format(branch["node_minus"], node, trans=True),
+        return prefix + "(((({})-({}))*dt)-(({})*(({}))))".format(v_format(branch["node_plus"],  node),
+                                                                  v_format(branch["node_minus"], node),
                                                                            branch["value"],
                                                                  di_format(branch["branch_idx"], node))
 
@@ -71,8 +71,8 @@ class VSource:
                                                     branch["value"])
     @staticmethod
     def trans_eqn(branch, node):
-        return "((({})-({}))-({}))".format(v_format(branch["node_plus"],  node, trans=True),
-                                           v_format(branch["node_minus"], node, trans=True),
+        return "((({})-({}))-({}))".format(v_format(branch["node_plus"],  node),
+                                           v_format(branch["node_minus"], node),
                                                     branch["value"])
 
 class ISource:
@@ -82,5 +82,5 @@ class ISource:
                                              branch["value"])
     @staticmethod
     def trans_eqn(branch, node):
-        return "(({})-({}))".format(i_format(branch["branch_idx"], node, trans=True),
+        return "(({})-({}))".format(i_format(branch["branch_idx"], node),
                                              branch["value"])
