@@ -15,12 +15,16 @@ def gen_out_txt(raw_fname, title, test_type, soln, sorted_nodes):
     @param soln: simulation results; should contain one entry for each timestep
                  for transient simulations and one entry for operating point
                  simulations. Each entry contains a list whose initial entry
-                 is the simulation time, the next entries are the node voltages
+                 is the simulation time (for transient sims only).
+                 The next entries are the node voltages
                  in order, and the final entries are the branch currents in
                  order.
     @param sorted_nodes: List of nodes from smallest to greatest (e.g.
                          ["1", "2", "4"])
     """
+    assert len(soln) > 0
+    assert all([len(_) == len(soln[i-1]) for i,_ in enumerate(soln) if i != 0])
+    assert len(soln[0]) > len(sorted_nodes)
     spice_raw_file_txt  = "Title: {}\n".format(title)
     spice_raw_file_txt += "Date: {}\n".format(datetime.today().strftime('%c'))
     spice_raw_file_txt += "Plotname: {}\n".format("Transient Analysis" \
