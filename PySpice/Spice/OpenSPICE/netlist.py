@@ -29,7 +29,6 @@ def netlist():
            [ctrl, tran, op_pt], OneOrMore(newline), end
 
 def branch():
-    # TODO: Enable behavisource and behavvsource
     return [resistor, capacitor, inductor, vsource, isource, extvsource, extisource,
             vccssource, vcvssource, ccvssource, cccssource, behavisource, behavvsource]
 
@@ -85,29 +84,49 @@ def _int():
 # Text Formatting Classes #
 
 class TextFmt(ABC):
+    """
+    Abstract class used to generate values for components.
+    """
     @abstractmethod
     def gen_txt_str(self, nodes):
+        """
+        @param node: List of node numbers.
+        @return: string (or float) representing component value;
+                 may be an equation
+        """
         pass
 
 class ResistorTextFmt(TextFmt):
+    """
+    Resistor class inheriting TextFmt
+    """
     def __init__(self, value):
         self.value = value
     def gen_txt_str(self, nodes):
         return unit_parse(self.value)
 
 class CapacitorTextFmt(TextFmt):
+    """
+    Capacitor class inheriting TextFmt
+    """
     def __init__(self, value):
         self.value = value
     def gen_txt_str(self, nodes):
         return unit_parse(self.value)
 
 class InductorTextFmt(TextFmt):
+    """
+    Inductor class inheriting TextFmt
+    """
     def __init__(self, value):
         self.value = value
     def gen_txt_str(self, nodes):
         return unit_parse(self.value)
 
 class VSourceTextFmt(TextFmt):
+    """
+    VSource class inheriting TextFmt
+    """
     def __init__(self, value, srctype="passiveValue"):
         self.value   = value
         self.srctype = srctype
@@ -148,24 +167,44 @@ class VSourceTextFmt(TextFmt):
             assert False
 
 class ISourceTextFmt(TextFmt):
+    """
+    ISource class inheriting TextFmt
+    """
     def __init__(self, value):
         self.value = value
     def gen_txt_str(self, nodes):
         return unit_parse(self.value)
 
 class ExtVSourceTextFmt(TextFmt):
+    """
+    ExtVSource class inheriting TextFmt
+    """
     def __init__(self):
         pass
     def gen_txt_str(self, nodes):
+        """
+        @return: Returns the string "(get_vsrc(t))". Function defined in
+                 solve.py. Used to get value from external voltage source.
+        """
         return "(get_vsrc(t))"
 
 class ExtISourceTextFmt(TextFmt):
+    """
+    ExtISource class inheriting TextFmt
+    """
     def __init__(self):
         pass
     def gen_txt_str(self, nodes):
+        """
+        @return: Returns the string "(get_isrc(t))". Function defined in
+                 solve.py. Used to get value from external current source.
+        """
         return "(get_isrc(t))"
 
 class VCCSSourceTextFmt(TextFmt):
+    """
+    VCCSSource class inheriting TextFmt
+    """
     def __init__(self, value, node_plus, node_minus):
         self.value = value
         self.node_plus = node_plus
@@ -175,6 +214,9 @@ class VCCSSourceTextFmt(TextFmt):
                                                        v_format(self.node_minus, nodes))
 
 class VCVSSourceTextFmt(TextFmt):
+    """
+    VCVSSource class inheriting TextFmt
+    """
     def __init__(self, value, node_plus, node_minus):
         self.value = value
         self.node_plus = node_plus
@@ -184,6 +226,9 @@ class VCVSSourceTextFmt(TextFmt):
                                                        v_format(self.node_minus, nodes))
 
 class CCVSSourceTextFmt(TextFmt):
+    """
+    CCVSSource class inheriting TextFmt
+    """
     def __init__(self, value, branch_plus, branch_minus):
         self.value = value
         self.branch_plus = branch_plus
@@ -193,6 +238,9 @@ class CCVSSourceTextFmt(TextFmt):
                                                        i_format(self.branch_minus, nodes))
 
 class CCCSSourceTextFmt(TextFmt):
+    """
+    CCCSSource class inheriting TextFmt
+    """
     def __init__(self, value, branch_plus, branch_minus):
         self.value = value
         self.branch_plus = branch_plus
@@ -202,6 +250,9 @@ class CCCSSourceTextFmt(TextFmt):
                                                        i_format(self.branch_minus, nodes))
 
 class BehavISourceTextFmt(TextFmt):
+    """
+    BehavISource class inheriting TextFmt
+    """
     def __init__(self, value):
         self.value = value
     def gen_txt_str(self, nodes):
@@ -212,6 +263,9 @@ class BehavISourceTextFmt(TextFmt):
         return "({})".format(val)
 
 class BehavVSourceTextFmt(TextFmt):
+    """
+    BehavVSource class inheriting TextFmt
+    """
     def __init__(self, value):
         self.value = value
     def gen_txt_str(self, nodes):
@@ -359,12 +413,19 @@ def title():
 # Unit Parsing
 
 def oom(x):
+    """
+    @param x: string of SI unit suffix
+    @return: float representing SI order of magnitude (hence, "oom")
+    """
     assert len(x) == 1
     # https://en.wikipedia.org/wiki/Metric_prefix
     return SI_PREFIXES[x]
 
 def unit_parse(x):
-    # TODO can this be formally verified?
+    """
+    @param x: string with SI unit suffix
+    @return: value float
+    """
     groups = search(r'(\d+\.*\d*)({})?([a-zA-z])*'.format(SI_PREFIX_REGEX), x).groups()
     return float(groups[0]) * 1.00 if not groups[1] or not groups[2] else float(groups[0]) * oom(groups[1])
 
@@ -372,32 +433,72 @@ def unit_parse(x):
 
 # Parsing Functions #
 
-class Netlist:
-    def __init__(self):
-        self.nodes    = []
-        self.branches = []
-
-    def gen_dict_from_branch(self, nonterm, branch_idx):
-        assert nonterm_is_branch(nonterm)
-
-
 def filter_terms(ptree):
+    """
+    Remove all newline terminals from Arpeggio parse tree.
+
+    @param ptree: Arpeggio parse tree
+    @return: list of parse tree nodes
+    """
     return [_ for _ in ptree if _.value != "\n"]
 
 # TODO: should we use explicit == as opposed to in?
 def nonterm_is_tran(nonterm):
+    """
+    Check if nonterminal node in Arpeggio parse tree is a tran.
+
+    @param nonterm: nonterminal node from Arpeggio parse tree
+    @return: True/False boolean
+    """
     return (type(nonterm) == NonTerminal) and ("tran" in nonterm.name)
 
 def nonterm_is_branch(nonterm):
+    """
+    Check if nonterminal node in Arpeggio parse tree is a branch.
+
+    @param nonterm: nonterminal node from Arpeggio parse tree
+    @return: True/False boolean
+    """
     return (type(nonterm) == NonTerminal) and ("branch" in nonterm.name)
 
 def nonterm_is_ctrl(nonterm):
+    """
+    Check if nonterminal node in Arpeggio parse tree is a ctrl.
+
+    @param nonterm: nonterminal node from Arpeggio parse tree
+    @return: True/False boolean
+    """
     return (type(nonterm) == NonTerminal) and ("ctrl" in nonterm.name)
 
 def nonterm_is_title(nonterm):
+    """
+    Check if nonterminal node in Arpeggio parse tree is a title.
+
+    @param nonterm: nonterminal node from Arpeggio parse tree
+    @return: True/False boolean
+    """
     return (type(nonterm) == NonTerminal) and ("title" in nonterm.name)
 
 def gen_dict_from_tran_node(tran_node):
+    """
+    Generate a control dictionary for transient simulations. The entries are
+    the following:
+
+    "test_type" key: maps to the string literal "tran"
+    "tstep" key: maps to a float literal for the timestep size
+    "tstop" key: maps to a float literal for the simulation end time
+    "tstart" key: maps to a float literal for the simulation start time
+    "tmax" key: maps to a float literal for the max timestep size; used
+                for variable timestepping, which OpenSPICE currently does
+                not support
+    "uic" key: maps to the string literal "uic" if defined, excluded otherwise;
+               tells the user whether
+               initial conditions are to be used; currently unused and
+               assumed to be "uic"
+
+    @param tran_node: nonterminal node from Arpeggio parse tree
+    @return: control dictionary for nonterm
+    """
     assert nonterm_is_tran(tran_node)
     tran_node_rule_names = [n.rule_name for n in tran_node]
     tran_d = {"test_type" : "tran",
@@ -418,6 +519,17 @@ def gen_dict_from_tran_node(tran_node):
     return tran_d
 
 def gen_dict_from_ctrl(nonterm):
+    """
+    Generate a control dictionary. The entries vary depending on the
+    type of test. For operating point simulations, there is only
+    one key, "test_type", which maps to the string literal "op_pt".
+
+    Please see gen_dict_from_tran_node for details on the control
+    dictionary for transient simulations.
+
+    @param nonterm: nonterminal node from Arpeggio parse tree
+    @return: control dictionary for nonterm
+    """
     assert nonterm_is_ctrl(nonterm)
     rule_names = [n.rule_name for n in nonterm]
     if "op_pt" in rule_names:
@@ -428,6 +540,27 @@ def gen_dict_from_ctrl(nonterm):
         assert False
 
 def gen_dict_from_branch(nonterm, branch_idx):
+    """
+    Generate a branch dictionary. The entries are:
+
+    "component" key: maps to class of component on branch (ex: Resistor)
+    "node_plus" key: maps to positive side node (ex: '1')
+    "node_minus" key: maps to negative side node (ex: '11')
+    "value" key: maps to component value (ex: 0.0); value can also be
+                 an expression involving the x vector; the Python "exec"
+                 function is used in solve.py to evaluate the equations,
+                 so you could use arbitrary Python code here if you wanted to
+                 do so. However, do so at your own risk.
+
+                 These values are implemented using TextFmt
+                 classes. Call their gen_txt_str method to get the string or
+                 float value.
+    "branch_idx" key: maps to component value (ex: 2)
+
+    @param nonterm: nonterminal node from Arpeggio parse tree
+    @param branch_idx: index for branch in circuit
+    @return: branch dictionary for nonterm
+    """
     assert nonterm_is_branch(nonterm)
     if   nonterm[0].rule_name == "resistor":
         assert len(nonterm[0]) == 4
@@ -540,9 +673,30 @@ def gen_dict_from_branch(nonterm, branch_idx):
         assert False
 
 def gen_data_dicts(ptree):
+    """
+    Consume parse tree and generate a data dictionary. The data dictionary
+    takes on the following form:
+
+    "branches" key: maps to a list of branch dictionaries, documented
+    in the gen_dict_from_branch function
+
+    "nodes" key: maps to a list of all the nodes in the circuit
+    (ex: ['1', '2'])
+
+    "ctrl" key: maps to a control dictionary, documented in the
+    gen_dict_from_ctrl function
+
+    "title" key: maps to the netlist title string
+
+    @param ptree: array of nodes from Arpeggio parse tree for input
+                  netlist
+    @return: data dictionary for netlist
+    """
     branches = [_ for _ in ptree if nonterm_is_branch(_)]
-    branches = [gen_dict_from_branch(_, branch_idx) for branch_idx,_ in enumerate(branches)]
-    nodes    = sorted(set().union(*[{d["node_plus"], d["node_minus"]} for d in branches]))
+    branches = [gen_dict_from_branch(_, branch_idx) for branch_idx,_ in \
+        enumerate(branches)]
+    nodes    = sorted(set().union(*[{d["node_plus"], d["node_minus"]} for d \
+        in branches]))
     assert "0" in nodes
     nodes.remove("0")
     [_.update({"value" : _["value"].gen_txt_str(nodes)}) for _ in branches]
@@ -550,18 +704,27 @@ def gen_data_dicts(ptree):
     if len(ctrl) == 0:
         # TODO: need a cleaner way of dealing with ctrl statements
         ctrl  = [{"test_type" : "op_pt"}    for _ in ptree if _.value == ".op"]
-        ctrl += [gen_dict_from_tran_node(_) for _ in ptree if ".tran" in _.value]
+        ctrl += [gen_dict_from_tran_node(_) for _ in ptree if ".tran" \
+            in _.value]
         # TODO support multiple test types?
         assert len(ctrl) == 1
     titles   = [_.value for _ in ptree if nonterm_is_title(_)]
     assert len(titles) == 1 or len(titles) == 0
     if len(titles) == 0:
         titles.append(DEFAULT_TITLE)
-    return {"branches" : branches, "nodes" : nodes, "ctrl" : ctrl, "title" : titles[0]}
+    return {"branches" : branches, "nodes" : nodes, "ctrl" : ctrl, \
+            "title" : titles[0]}
 
 def parse(txt):
+    """
+    Parse a SPICE netlist string and return a data dictionary.
+
+    @param txt: string containing file contents of SPICE netlist
+    @return: data dictionary for netlist
+    """
     parser = ParserPython(netlist, ws='\t\r ')
-    return gen_data_dicts(filter_terms(parser.parse(txt)))
+    ptree = parser.parse(txt)
+    return gen_data_dicts(filter_terms(ptree))
 
 #######################################################################################
 
