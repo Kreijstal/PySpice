@@ -67,7 +67,6 @@ def end():
     return RegExMatch(".end")
 
 def options():
-    # TODO - paste link from below
     return RegExMatch(".options"), RegExMatch('.*$')
 
 def _float():
