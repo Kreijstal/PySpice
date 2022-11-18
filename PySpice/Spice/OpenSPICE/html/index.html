@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=11"/>
 <meta name="generator" content="Doxygen 1.9.5"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>OpenSPICE: Main Page</title>
+<title>OpenSPICE: OpenSPICE</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -69,10 +69,13 @@ $(function() {
 </div>
 </div>
 
-<div class="header">
-  <div class="headertitle"><div class="title">OpenSPICE Documentation</div></div>
+<div><div class="header">
+  <div class="headertitle"><div class="title">OpenSPICE </div></div>
 </div><!--header-->
 <div class="contents">
+<div class="textblock"><p ><a class="anchor" id="md_main"></a> OpenSPICE is a lightweight, Python-native circuit simulator. It is bundled with PySpice. As a result, to use OpenSPICE, replace any usage of PySpice.Spice.NgSpice.Shared with PySpice.Spice.OpenSPICE.Shared in your PySpice code. Also, if you call the simulator method in the Circuit class, be sure to provide "OpenSPICE" and not "NgSpice" as the simulator argument. Other than that, pretty much all of your PySpice code should work the same.</p>
+<p >One last detail: OpenSPICE does NOT support variable timestepping. Thus, be sure to use a sufficiently small timestep value for accurate results. </p>
+</div></div><!-- PageDoc -->
 </div><!-- contents -->
 <!-- start footer part -->
 <hr class="footer"/><address class="footer"><small>
