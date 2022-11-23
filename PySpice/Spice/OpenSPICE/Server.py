@@ -55,10 +55,7 @@ class OpenSPICEServer:
 
     """
 
-    if ConfigInstall.OS.on_freebsd:
-        OpenSPICE_COMMAND = 'python3 -m OpenSPICE'
-    else:
-        raise NotImplementedError
+    OpenSPICE_COMMAND = 'python3 -m OpenSPICE'
 
     _logger = _module_logger.getChild('OpenSPICEServer')
 
