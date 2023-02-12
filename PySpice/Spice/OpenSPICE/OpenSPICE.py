@@ -8,6 +8,7 @@ from .genout import gen_out_txt
 def run(input_fname, output_fname):
     with open(input_fname, "r") as f:
         file_txt = f.read()
+    file_txt = file_txt.replace("\n\n", "\n")
     pdata = parse(file_txt)
     eqns = gen_eqns_top(pdata)
     # TODO Support multiple test types?

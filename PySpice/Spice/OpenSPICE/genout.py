@@ -39,7 +39,7 @@ def gen_out_txt(raw_fname, title, test_type, soln, sorted_nodes):
                 (test_type == "tran")+i,"V({})".format(v)) \
                 for i,v in enumerate(sorted_nodes)])
     spice_raw_file_txt += "Binary:\n"
-    with open(raw_fname, "w") as spice_raw_file:
-        spice_raw_file.write(spice_raw_file_txt)
+    with open(raw_fname, "wb") as spice_raw_file:
+        spice_raw_file.write(bytes(spice_raw_file_txt, "UTF-8"))
     with open(raw_fname, "ab") as spice_raw_file:
         [spice_raw_file.write(array('d', s).tobytes()) for s in soln]
