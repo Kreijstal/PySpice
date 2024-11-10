@@ -416,11 +416,9 @@ class NgSpiceShared:
             
             if msystem and mingw_prefix:
                 # Use MINGW paths
-                cls.LIBRARY_PATH = str(Path(mingw_prefix) / 'bin' / 'libngspice{}.dll')
+                cls.LIBRARY_PATH = str(Path(mingw_prefix) / 'bin' / 'libngspice-0{}.dll')
                 if 'SPICE_LIB_DIR' not in os.environ:
                     os.environ['SPICE_LIB_DIR'] = str(Path(mingw_prefix) / 'share' / 'ngspice' / 'scripts')
-                if 'NGSPICE_LIBRARY_PATH' not in os.environ:
-                    os.environ['NGSPICE_LIBRARY_PATH'] = str(Path(mingw_prefix) / 'bin' / 'libngspice-0.dll')
             else:
                 # Fall back to original Windows paths
                 ngspice_path = Path(__file__).parent.joinpath('Spice64_dll')
