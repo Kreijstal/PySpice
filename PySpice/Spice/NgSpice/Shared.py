@@ -406,31 +406,35 @@ class NgSpiceShared:
 
     @classmethod
     def setup_platform(cls):
-
         if ConfigInstall.OS.on_windows:
             if platform.architecture()[0] != '64bit':
                 raise NameError('Windows 32bit is no longer supported by NgSpice')
 
-        _ = os.environ.get('NGSPICE_LIBRARY_PATH', None)
-        if _ is not None:
-            cls.LIBRARY_PATH = _
-        else:
-            if ConfigInstall.OS.on_windows:
+            # Check for MSYSTEM environment first
+            msystem = os.environ.get('MSYSTEM')
+            mingw_prefix = os.environ.get('MINGW_PREFIX')
+            
+            if msystem and mingw_prefix:
+                # Use MINGW paths
+                cls.LIBRARY_PATH = str(Path(mingw_prefix) / 'bin' / 'libngspice-0{}.dll')
+                if 'SPICE_LIB_DIR' not in os.environ:
+                    os.environ['SPICE_LIB_DIR'] = str(Path(mingw_prefix) / 'share' / 'ngspice' / 'scripts')
+            else:
+                # Fall back to original Windows paths
                 ngspice_path = Path(__file__).parent.joinpath('Spice64_dll')
                 cls.NGSPICE_PATH = ngspice_path
-                # path = ngspice_path.joinpath('dll-vs', 'ngspice-{version}{id}.dll')
-                path = ngspice_path.joinpath('dll-vs', 'ngspice{}.dll')
+                cls.LIBRARY_PATH = str(ngspice_path.joinpath('dll-vs', 'ngspice{}.dll'))
 
-            elif ConfigInstall.OS.on_osx:
-                path = 'libngspice{}.dylib'
-
-            elif ConfigInstall.OS.on_linux:
-                path = 'libngspice{}.so'
-
-            else:
-                raise NotImplementedError
-
+        elif ConfigInstall.OS.on_osx:
+            path = 'libngspice{}.dylib'
             cls.LIBRARY_PATH = str(path)
+
+        elif ConfigInstall.OS.on_linux:
+            path = 'libngspice{}.so'
+            cls.LIBRARY_PATH = str(path)
+
+        else:
+            raise NotImplementedError
 
     ##############################################
 
@@ -453,32 +457,25 @@ class NgSpiceShared:
     ##############################################
 
     def __init__(self, ngspice_id=0, send_data=False, verbose=False):
-
         """ Set the *send_data* flag if you want to enable the output callback.
 
         Set the *ngspice_id* to an integer value if you want to run NgSpice in parallel.
         """
 
         self._ngspice_id = ngspice_id
-
         self._spinit_not_found = False
-
         self._number_of_exec_calls = 0
-
         self._stdout = []
         self._stderr = []
         self._error_in_stdout = None
         self._error_in_stderr = None
-
         self._has_cider = None
         self._has_xspice = None
         self._ngspice_version = None
         self._extensions = []
-
         self._library_path = None
         self._load_library(verbose)
         self._init_ngspice(send_data)
-
         self._is_running = False
 
     ##############################################
@@ -495,7 +492,7 @@ class NgSpiceShared:
             if not self._ngspice_id:
                 library_prefix = ''
             else:
-                library_prefix = '{}'.format(self._ngspice_id)  # id =
+                library_prefix = '{}'.format(self._ngspice_id)
             library_path = self.LIBRARY_PATH.format(library_prefix)
             self._library_path = library_path
         return self._library_path
@@ -503,24 +500,13 @@ class NgSpiceShared:
     ##############################################
 
     def _load_library(self, verbose):
-
         if ConfigInstall.OS.on_windows:
-            # https://sourceforge.net/p/ngspice/discussion/133842/thread/1cece652/#4e32/5ab8/9027
-            # When environment variable SPICE_LIB_DIR is empty, ngspice looks in C:\Spice64\share\ngspice\scripts
-            # Else it tries %SPICE_LIB_DIR%\scripts\spinit
             if 'SPICE_LIB_DIR' not in os.environ:
-                _ = str(Path(self.NGSPICE_PATH).joinpath('share', 'ngspice'))
-                os.environ['SPICE_LIB_DIR'] = _
-                # self._logger.warning('Set SPICE_LIB_DIR = %s', _)
+                if self.NGSPICE_PATH:
+                    # Original Windows path
+                    spice_lib_dir = str(Path(self.NGSPICE_PATH).joinpath('share', 'ngspice'))
+                    os.environ['SPICE_LIB_DIR'] = spice_lib_dir
 
-        # Fixme: not compatible with supra
-        # if 'CONDA_PREFIX' in os.environ:
-        #     _ = str(Path(os.environ['CONDA_PREFIX']).joinpath('share', 'ngspice'))
-        #     os.environ['SPICE_LIB_DIR'] = _
-        #     self._logger.warning('Set SPICE_LIB_DIR = %s', _)
-
-        # https://sourceforge.net/p/ngspice/bugs/490
-        # ngspice and Kicad do setlocale(LC_NUMERIC, "C");
         if ConfigInstall.OS.on_windows:
             self._logger.debug('locale LC_NUMERIC is not forced to C')
         elif ConfigInstall.OS.on_linux or ConfigInstall.OS.on_osx:
