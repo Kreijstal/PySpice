@@ -100,7 +100,7 @@ See Ngspice documentation for details.
 import logging
 
 from ..Tools.StringTools import str_spice, join_list, join_dict
-from ..Unit import U_m, U_s, U_a, U_v, U_c, U_Ω, U_F, U_h, U_Hz
+from ..Unit import U_m, U_s, U_a, U_v, U_c, U_Ω, U_F, U_H, U_Hz
 from .Netlist import (Element, AnyPinElement, FixedPinElement, NPinElement,
                       OptionalPin, Pin, PinDefinition)
 from .ElementParameter import (
@@ -614,7 +614,7 @@ class Inductor(DipoleElement):
     ALIAS = 'L'
     PREFIX = 'L'
 
-    inductance = FloatPositionalParameter(position=-1, key_parameter=False, unit=U_h)
+    inductance = FloatPositionalParameter(position=-1, key_parameter=False, unit=U_H)
     model = ModelPositionalParameter(position=0, key_parameter=True)
     nt = FloatKeyParameter('nt')
     multiplier = IntKeyParameter('m')

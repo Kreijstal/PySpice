@@ -286,7 +286,7 @@ class Tesla(Unit):
 
 class Henry(Unit):
     UNIT_NAME = 'henry'
-    UNIT_SUFFIX = 'h'
+    UNIT_SUFFIX = 'H'
     QUANTITY = 'inductance'
     SI_UNIT = 'kg*m^2*s^-2*A^-2'
     DEFAULT_UNIT = True
