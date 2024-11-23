@@ -109,6 +109,7 @@ class NgSpiceSharedCircuitSimulator(NgSpiceCircuitSimulator):
     ##############################################
 
     def _run(self, analysis_method, *args, **kwargs):
+        background = kwargs.pop('background', False)
 
         super()._run(analysis_method, *args, **kwargs)
 
@@ -116,7 +117,7 @@ class NgSpiceSharedCircuitSimulator(NgSpiceCircuitSimulator):
         # load circuit and simulation
         # Fixme: Error: circuit not parsed.
         self._ngspice_shared.load_circuit(str(self))
-        self._ngspice_shared.run()
+        self._ngspice_shared.run(background=background)
         self._logger.debug(str(self._ngspice_shared.plot_names))
         self.reset_analysis()
 
