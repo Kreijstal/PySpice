@@ -416,10 +416,21 @@ class NgSpiceShared:
             cls.LIBRARY_PATH = _
         else:
             if ConfigInstall.OS.on_windows:
-                ngspice_path = Path(__file__).parent.joinpath('Spice64_dll')
-                cls.NGSPICE_PATH = ngspice_path
-                # path = ngspice_path.joinpath('dll-vs', 'ngspice-{version}{id}.dll')
-                path = ngspice_path.joinpath('dll-vs', 'ngspice{}.dll')
+                # Check for MSYSTEM environment first
+                msystem = os.environ.get('MSYSTEM')
+                mingw_prefix = os.environ.get('MINGW_PREFIX')
+
+                if msystem and mingw_prefix:
+                    # Use MINGW paths
+                    path = str(Path(mingw_prefix) / 'bin' / 'libngspice-0{}.dll')
+                    if 'SPICE_LIB_DIR' not in os.environ:
+                        os.environ['SPICE_LIB_DIR'] = str(Path(mingw_prefix) / 'share' / 'ngspice' / 'scripts')
+                else:
+                    # Fall back to original Windows paths
+                    ngspice_path = Path(__file__).parent.joinpath('Spice64_dll')
+                    cls.NGSPICE_PATH = ngspice_path
+                    # path = ngspice_path.joinpath('dll-vs', 'ngspice-{version}{id}.dll')
+                    path = str(ngspice_path.joinpath('dll-vs', 'ngspice{}.dll'))
 
             elif ConfigInstall.OS.on_osx:
                 path = 'libngspice{}.dylib'
@@ -431,6 +442,8 @@ class NgSpiceShared:
                 raise NotImplementedError
 
             cls.LIBRARY_PATH = str(path)
+
+
 
     ##############################################
 
@@ -508,6 +521,7 @@ class NgSpiceShared:
             # https://sourceforge.net/p/ngspice/discussion/133842/thread/1cece652/#4e32/5ab8/9027
             # When environment variable SPICE_LIB_DIR is empty, ngspice looks in C:\Spice64\share\ngspice\scripts
             # Else it tries %SPICE_LIB_DIR%\scripts\spinit
+
             if 'SPICE_LIB_DIR' not in os.environ:
                 _ = str(Path(self.NGSPICE_PATH).joinpath('share', 'ngspice'))
                 os.environ['SPICE_LIB_DIR'] = _
@@ -620,7 +634,8 @@ class NgSpiceShared:
             self._stderr.append(content)
             if content.startswith('Warning:'):
                 func = self._logger.warning
-            # elif content.startswith('Warning:'):
+            elif content.startswith('Using'): # Ignore "Using ... as Direct Linear Solver" messages
+                func = self._logger.debug 
             else:
                 self._error_in_stderr = True
                 func = self._logger.error
