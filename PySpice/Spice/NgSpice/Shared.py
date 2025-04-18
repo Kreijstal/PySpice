@@ -637,6 +637,8 @@ class NgSpiceShared:
                 func = self._logger.debug
             elif content.startswith('run simulation interrupted'): 
                 func = self._logger.debug
+            elif content.startswith('simulation interrupted'):
+                func = self._logger.debug
             elif content.startswith('Note:'):
                 func = self._logger.info
             elif content.startswith('Trying'):
